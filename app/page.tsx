@@ -816,14 +816,16 @@ export default function HomePage() {
                 ))}
               </div>
               {form.has_additional_experience === "Yes" && (
-                <textarea
-                  rows={4}
-                  value={form.additional_experience_text}
-                  onChange={(e) => handleFieldChange("additional_experience_text", e.target.value)}
-                  placeholder={getText(language, "additionalExperiencePlaceholder")}
-                  className="mt-3 w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-slate-500"
-                />
-                <>{supportingMaterialFields("additional_experience")}</>
+                <>
+                  <textarea
+                    rows={4}
+                    value={form.additional_experience_text}
+                    onChange={(e) => handleFieldChange("additional_experience_text", e.target.value)}
+                    placeholder={getText(language, "additionalExperiencePlaceholder")}
+                    className="mt-3 w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-slate-500"
+                  />
+                  {supportingMaterialFields("additional_experience")}
+                </>
               )}
             </div>
 
@@ -1088,6 +1090,7 @@ export default function HomePage() {
                   onChange={(e) => handleFieldChange("additional_professional_information", e.target.value)}
                   className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-slate-500"
                 />
+                {supportingMaterialFields("additional_professional_information")}
               </label>
             </div>
 
