@@ -9,7 +9,7 @@ function toDateTimeLocal(value?: string | null) {
 }
 
 export function AdminPaymentControls({ requestCode, payment }: { requestCode: string; payment: Payment }) {
-  const [form, setForm] = useState({ payment_status: payment.payment_status || "PENDING", payment_method: payment.payment_method || "Sofizpay", payment_reference: payment.payment_reference || "", payment_notes: payment.payment_notes || "", paid_at: toDateTimeLocal(payment.paid_at) });
+  const [form, setForm] = useState({ payment_status: payment.payment_status || "PENDING", payment_method: payment.payment_method || "", payment_reference: payment.payment_reference || "", payment_notes: payment.payment_notes || "", paid_at: toDateTimeLocal(payment.paid_at) });
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -20,6 +20,15 @@ export function AdminPaymentControls({ requestCode, payment }: { requestCode: st
       const response = await fetch(`/api/admin/requests/${encodeURIComponent(requestCode)}/payment`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Payment update failed.");
+      if (result.payment) {
+        setForm({
+          payment_status: result.payment.payment_status || "PENDING",
+          payment_method: result.payment.payment_method || "",
+          payment_reference: result.payment.payment_reference || "",
+          payment_notes: result.payment.payment_notes || "",
+          paid_at: toDateTimeLocal(result.payment.paid_at),
+        });
+      }
       setMessage("Payment details saved.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Payment update failed.");
