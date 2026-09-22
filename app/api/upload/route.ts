@@ -181,12 +181,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Unsupported file type." }, { status: 400 });
     }
 
-    if (!kindInfo.isPrimary) {
-      return NextResponse.json({ success: true, path, file_name: fileName, file_type: contentType });
-    }
-
     const supabase = getSupabaseServerClient();
-    const fields = primaryFileFields[kind as PrimaryKind];
     const lastSlash = path.lastIndexOf("/");
     const folder = path.slice(0, lastSlash);
     const objectName = path.slice(lastSlash + 1);
@@ -198,6 +193,11 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Uploaded file could not be verified." }, { status: 409 });
     }
 
+    if (!kindInfo.isPrimary) {
+      return NextResponse.json({ success: true, path, file_name: fileName, file_type: contentType });
+    }
+
+    const fields = primaryFileFields[kind as PrimaryKind];
     const { error: updateError } = await supabase
       .from("cv_requests")
       .update({
