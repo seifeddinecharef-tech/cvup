@@ -8,11 +8,8 @@ export const revalidate = 0;
 function generateRequestCode(): string {
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let randomPart = "";
-
-  for (let i = 0; i < 6; i += 1) {
-    randomPart += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  const randomPart = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
 
   return `CVUP-${today}-${randomPart}`;
 }
