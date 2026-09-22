@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   professionalFields,
   commonToolsByField,
@@ -52,6 +53,7 @@ const initialForm = {
   company_name: "",
   job_url: "",
   job_description_text: "",
+  job_description_file: null as File | null,
   professional_field: "Marketing / Communication",
   target_role: "",
   cv_language_count: 1,
@@ -113,6 +115,7 @@ function WhatsAppIcon() {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const [language, setLanguage] = useState<LanguageCode>("fr");
   const [form, setForm] = useState(initialForm);
   const [status, setStatus] = useState<string | null>(null);
@@ -236,10 +239,13 @@ export default function HomePage() {
     setStatus(null);
 
     try {
-      const { current_cv_file, certifications_file, cv_template_file, ...serializableForm } = form;
-      void current_cv_file;
-      void certifications_file;
-      void cv_template_file;
+      const {
+        current_cv_file,
+        job_description_file,
+        certifications_file,
+        cv_template_file,
+        ...serializableForm
+      } = form;
 
       const initialMaterials: SupportingMaterialPayload[] = supportingQuestionKeys
         .map((questionKey) => ({
@@ -269,62 +275,89 @@ export default function HomePage() {
 
       const requestCode = typeof result?.request_code === "string" ? result.request_code : "";
       const requestId = typeof result?.id === "string" ? result.id : "";
+      const submissionToken = typeof result?.submission_token === "string" ? result.submission_token : "";
 
-      if (requestCode && requestId) {
-        const materials = [...initialMaterials];
+      if (!requestCode || !requestId || !submissionToken) {
+        throw new Error(ui(
+          "تم إنشاء الطلب لكن تعذر تجهيز رفع الملفات.",
+          "La demande a été créée, mais le téléversement des fichiers n’a pas pu être préparé.",
+          "The request was created, but file upload could not be prepared."
+        ));
+      }
 
-        for (const questionKey of supportingQuestionKeys) {
-          const file = supportingFiles[questionKey];
-          if (!file) continue;
+      const uploadFile = async (file: File, kind: string) => {
+        const uploadBody = new FormData();
+        uploadBody.append("file", file);
+        uploadBody.append("requestId", requestId);
+        uploadBody.append("kind", kind);
+        uploadBody.append("token", submissionToken);
 
-          const uploadBody = new FormData();
-          uploadBody.append("file", file);
-          uploadBody.append("requestId", requestId);
-          uploadBody.append("folder", `supporting/${questionKey}/`);
+        const uploadResponse = await fetch("/api/upload", { method: "POST", body: uploadBody });
+        const uploadResult = await uploadResponse.json();
 
-          const uploadResponse = await fetch("/api/upload", { method: "POST", body: uploadBody });
-          const uploadResult = await uploadResponse.json();
-
-          if (!uploadResponse.ok || !uploadResult?.path) {
-            throw new Error(ui(
-              "تم إنشاء الطلب لكن تعذر رفع أحد الملفات الداعمة.",
-              "La demande a été créée, mais un fichier justificatif n’a pas pu être téléversé.",
-              "The request was created, but a supporting file could not be uploaded."
-            ));
-          }
-
-          const existingIndex = materials.findIndex((item) => item.question_key === questionKey);
-          const material = {
-            question_key: questionKey,
-            link: supportingLinks[questionKey].trim() || null,
-            file_path: String(uploadResult.path),
-            file_name: file.name,
-            file_type: file.type || null,
-          };
-
-          if (existingIndex >= 0) materials[existingIndex] = material;
-          else materials.push(material);
+        if (!uploadResponse.ok || !uploadResult?.path) {
+          throw new Error(uploadResult?.error || ui(
+            "تعذر رفع أحد الملفات.",
+            "Le téléversement d’un fichier a échoué.",
+            "A file could not be uploaded."
+          ));
         }
 
-        if (materials.length) {
-          const materialsResponse = await fetch(`/api/requests/${encodeURIComponent(requestCode)}/supporting-materials`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ materials }),
-          });
+        return uploadResult as { path: string; file_name?: string; file_type?: string | null };
+      };
 
-          if (!materialsResponse.ok) {
-            throw new Error(ui(
-              "تم إنشاء الطلب لكن تعذر حفظ المرفقات الداعمة.",
-              "La demande a été créée, mais les pièces justificatives n’ont pas pu être enregistrées.",
-              "The request was created, but the supporting materials could not be saved."
-            ));
-          }
+      const primaryFiles: Array<{ file: File | null; kind: string }> = [
+        { file: current_cv_file, kind: "current_cv" },
+        { file: job_description_file, kind: "job_description" },
+        { file: certifications_file, kind: "certifications" },
+        { file: cv_template_file, kind: "template" },
+      ];
+
+      for (const item of primaryFiles) {
+        if (item.file) await uploadFile(item.file, item.kind);
+      }
+
+      const materials = [...initialMaterials];
+
+      for (const questionKey of supportingQuestionKeys) {
+        const file = supportingFiles[questionKey];
+        if (!file) continue;
+
+        const uploadResult = await uploadFile(file, `supporting:${questionKey}`);
+        const existingIndex = materials.findIndex((item) => item.question_key === questionKey);
+        const material: SupportingMaterialPayload = {
+          question_key: questionKey,
+          link: supportingLinks[questionKey].trim() || null,
+          file_path: String(uploadResult.path),
+          file_name: uploadResult.file_name || file.name,
+          file_type: uploadResult.file_type || file.type || null,
+        };
+
+        if (existingIndex >= 0) materials[existingIndex] = material;
+        else materials.push(material);
+      }
+
+      if (materials.length) {
+        const materialsResponse = await fetch(`/api/requests/${encodeURIComponent(requestCode)}/supporting-materials`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${submissionToken}`,
+          },
+          body: JSON.stringify({ materials }),
+        });
+
+        if (!materialsResponse.ok) {
+          throw new Error(ui(
+            "تم إنشاء الطلب لكن تعذر حفظ المرفقات الداعمة.",
+            "La demande a été créée, mais les pièces justificatives n’ont pas pu être enregistrées.",
+            "The request was created, but the supporting materials could not be saved."
+          ));
         }
       }
 
-      setStatus(requestCode ? ui(`تم إرسال الطلب: ${requestCode}`, `Demande envoyée : ${requestCode}`, `Request submitted: ${requestCode}`) : ui("تم إرسال الطلب", "Demande envoyée", "Request submitted"));
-      window.location.href = requestCode ? `/success?request_code=${encodeURIComponent(requestCode)}` : "/success";
+      setStatus(ui(`تم إرسال الطلب: ${requestCode}`, `Demande envoyée : ${requestCode}`, `Request submitted: ${requestCode}`));
+      router.push(`/success?request_code=${encodeURIComponent(requestCode)}`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to submit your request.");
     } finally {
@@ -581,7 +614,8 @@ export default function HomePage() {
                   <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "uploadJobDescription")}</span>
                   <input
                     type="file"
-                    onChange={(e) => handleFieldChange("current_cv_file", e.target.files?.[0] ?? null)}
+                    accept=".pdf,.doc,.docx,.txt"
+                    onChange={(e) => handleFieldChange("job_description_file", e.target.files?.[0] ?? null)}
                     className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
                   />
                 </label>
@@ -1021,6 +1055,7 @@ export default function HomePage() {
                   />
                   <input
                     type="file"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
                     onChange={(e) => handleFieldChange("certifications_file", e.target.files?.[0] ?? null)}
                     className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
                   />
@@ -1052,6 +1087,7 @@ export default function HomePage() {
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
                   <input
                     type="file"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
                     onChange={(e) => handleFieldChange("cv_template_file", e.target.files?.[0] ?? null)}
                     className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
                   />
