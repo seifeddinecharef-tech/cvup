@@ -113,6 +113,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: true,
+        id: data.id,
         request_code: data.request_code,
       },
       {
