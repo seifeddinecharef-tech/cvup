@@ -153,7 +153,10 @@ export default function HomePage() {
     { ar: "مراجعة الطلب", fr: "Vérification", en: "Review" },
   ] as const;
   const stepTitle = (step: (typeof wizardSteps)[number]) => step[language];
-  const optionLabel = (value: string) => getFormOptionLabel(value, language);
+  const optionLabel = (value: string) => {
+    const label = getFormOptionLabel(value, language);
+    return value === "Other" ? `+ ${label}` : label;
+  };
   const ui = (ar: string, fr: string, en: string) => language === "ar" ? ar : language === "fr" ? fr : en;
   const countryOptions = useMemo(() => getCountryOptions(language), [language]);
   const countryLabel = (value: string) => getCountryLabel(value, language);
@@ -976,6 +979,14 @@ export default function HomePage() {
                   </label>
                 ))}
               </div>
+              {form.selected_cv_languages.includes("Other") ? (
+                <input
+                  value={form.selected_cv_languages_other}
+                  onChange={(event) => handleFieldChange("selected_cv_languages_other", event.target.value)}
+                  placeholder={ui("اكتب اللغة الأخرى", "Précisez l’autre langue", "Specify the other language")}
+                  className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
+                />
+              ) : null}
             </div>
 
             <div data-wizard-step="6">
@@ -1037,7 +1048,7 @@ export default function HomePage() {
                         handleFieldChange("professional_evidence", next);
                       }}
                     />
-                    <span>{item === "Other" ? getText(language, "professionalEvidenceOther") : optionLabel(item)}</span>
+                    <span>{item === "Other" ? `+ ${getText(language, "professionalEvidenceOther")}` : optionLabel(item)}</span>
                   </label>
                 ))}
               </div>
@@ -1067,7 +1078,7 @@ export default function HomePage() {
                           handleFieldChange("platforms_worked_with", next);
                         }}
                       />
-                      <span>{item === "Other" ? getText(language, "platformsOther") : optionLabel(item)}</span>
+                      <span>{item === "Other" ? `+ ${getText(language, "platformsOther")}` : optionLabel(item)}</span>
                     </label>
                   ))}
                 </div>
@@ -1184,7 +1195,7 @@ export default function HomePage() {
                           handleFieldChange("collaboration_types", next);
                         }}
                       />
-                      <span>{item === "Other" ? getText(language, "collaborationOther") : optionLabel(item)}</span>
+                      <span>{item === "Other" ? `+ ${getText(language, "collaborationOther")}` : optionLabel(item)}</span>
                     </label>
                   ))}
                 </div>
@@ -1231,7 +1242,7 @@ export default function HomePage() {
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "workAuthorization")}</span>
                   <select value={form.work_authorization} onChange={(e) => handleFieldChange("work_authorization", e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500">
-                    {["Citizen / National", "Permanent resident", "Valid work permit", "Need employer sponsorship", "Not sure", "Other"].map((option) => <option key={option} value={option}>{option === "Other" ? getText(language, "workAuthorizationOther") : optionLabel(option)}</option>)}
+                    {["Citizen / National", "Permanent resident", "Valid work permit", "Need employer sponsorship", "Not sure", "Other"].map((option) => <option key={option} value={option}>{option === "Other" ? `+ ${getText(language, "workAuthorizationOther")}` : optionLabel(option)}</option>)}
                   </select>
                 </label>
                 {form.work_authorization === "Other" && <input value={form.work_authorization_other} onChange={(e) => handleFieldChange("work_authorization_other", e.target.value)} placeholder={getText(language, "otherSpecify")} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500" />}
@@ -1386,7 +1397,7 @@ export default function HomePage() {
                       checked={form.cv_design_preference === option}
                       onChange={() => handleFieldChange("cv_design_preference", option)}
                     />
-                    <span className="text-sm">{option === "Other" ? getText(language, "designOther") : optionLabel(option)}</span>
+                    <span className="text-sm">{option === "Other" ? `+ ${getText(language, "designOther")}` : optionLabel(option)}</span>
                   </label>
                 ))}
               </div>
