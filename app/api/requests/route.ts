@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 import { getSupabaseServerClient } from "@/lib/supabase";
 import { assertRequestSubmissionTokenConfigured, createRequestSubmissionToken } from "@/lib/request-submission-token";
 
@@ -87,6 +89,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Final consent is required." }, { status: 400 });
     }
 
+    let authenticatedUserId: string | null = null;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+    const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
+    if (supabaseUrl && publishableKey) {
+      const cookieStore = await cookies();
+      const authClient = createServerClient(supabaseUrl, publishableKey, {
+        cookies: {
+          getAll: () => cookieStore.getAll(),
+          setAll: () => {},
+        },
+      });
+      const { data: { user } } = await authClient.auth.getUser();
+      authenticatedUserId = user?.id ?? null;
+    }
+
     const requestCode = generateRequestCode();
     const rawPayload = { ...payload, full_name_arabic: fullNameArabic };
     delete rawPayload.website;
@@ -115,6 +132,7 @@ export async function POST(request: Request) {
 
     const insertPayload = {
       request_code: requestCode,
+      user_id: authenticatedUserId,
       status: "NEW",
       form_language: formLanguage,
       full_name: fullName,
