@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminDashboard } from "@/components/admin-dashboard";
+import { AdminLogoutButton } from "@/components/admin-logout-button";
 import { getAdminRequests } from "@/lib/admin-data";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ export default async function AdminPage() {
           </div>
           <div className="admin-page-header__actions">
             <Link href="/" className="admin-button admin-button--secondary">View website</Link>
+            <AdminLogoutButton />
           </div>
         </header>
 
