@@ -45,7 +45,10 @@ function paymentClass(status?: string | null) {
 }
 
 function digits(value?: string | null) {
-  return String(value || "").replace(/\D/g, "");
+  let normalized = String(value || "").replace(/\D/g, "");
+  if (normalized.startsWith("00")) normalized = normalized.slice(2);
+  if (normalized.startsWith("0")) normalized = `213${normalized.slice(1)}`;
+  return normalized;
 }
 
 export default async function AdminRequestDetailPage({
@@ -83,8 +86,8 @@ export default async function AdminRequestDetailPage({
     ["Full name", request.full_name],
     ["Phone / WhatsApp", request.phone],
     ["Email", request.email],
-    ["Current country", rawPayload.current_country],
-    ["Nationality", rawPayload.nationality],
+    ["Current country", typeof rawPayload.current_country === "string" && rawPayload.current_country ? new Intl.DisplayNames(["en"], { type: "region" }).of(rawPayload.current_country) || rawPayload.current_country : "—"],
+    ["Nationality", typeof rawPayload.nationality === "string" && rawPayload.nationality ? new Intl.DisplayNames(["en"], { type: "region" }).of(rawPayload.nationality) || rawPayload.nationality : "—"],
     ["Willing to relocate", rawPayload.willing_to_relocate],
     ["Target countries", rawPayload.target_countries],
     ["Work authorization", rawPayload.work_authorization],
