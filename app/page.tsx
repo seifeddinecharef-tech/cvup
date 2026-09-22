@@ -11,6 +11,7 @@ import {
   languageLevels,
   platformsByField,
   professionalEvidenceByField,
+  getFormOptionLabel,
 } from "@/lib/forms";
 import { getText, languages, type LanguageCode } from "@/lib/i18n";
 
@@ -103,6 +104,7 @@ export default function HomePage() {
     { ar: "مراجعة الطلب", fr: "Vérification", en: "Review" },
   ] as const;
   const stepTitle = (step: (typeof wizardSteps)[number]) => step[language];
+  const optionLabel = (value: string) => getFormOptionLabel(value, language);
 
   useEffect(() => {
     document.getElementById("wizard-step-title")?.focus();
@@ -126,9 +128,10 @@ export default function HomePage() {
   }
 
   const reviewValue = (value: unknown) => {
-    if (Array.isArray(value)) return value.length ? value.join(", ") : "—";
-    if (typeof value === "boolean") return value ? "Yes" : "No";
-    return value === null || value === undefined || value === "" ? "—" : String(value);
+    if (Array.isArray(value)) return value.length ? value.map((item) => typeof item === "string" ? optionLabel(item) : String(item)).join(", ") : "—";
+    if (typeof value === "boolean") return value ? getText(language, "yes") : getText(language, "no");
+    if (typeof value === "string") return value ? optionLabel(value) : "—";
+    return value === null || value === undefined ? "—" : String(value);
   };
   const fileName = (file: File | null) => file?.name || "—";
   const reviewGroups = [
@@ -136,7 +139,7 @@ export default function HomePage() {
     { step: 2, title: stepTitle(wizardSteps[1]), values: [["CV", form.cv_type], [language === "ar" ? "الدور" : "Role", form.target_role], [language === "ar" ? "المجال" : "Field", form.professional_field], [language === "ar" ? "الوظيفة" : "Job title", form.target_job_title], [language === "ar" ? "الشركة" : "Company", form.company_name]] },
     { step: 3, title: stepTitle(wizardSteps[2]), values: [[language === "ar" ? "المسؤوليات" : "Evidence", form.professional_evidence], [language === "ar" ? "الإنجازات" : "Achievements", form.measurable_achievements_text], [language === "ar" ? "خبرة إضافية" : "Additional experience", form.additional_experience_text]] },
     { step: 4, title: stepTitle(wizardSteps[3]), values: [[language === "ar" ? "الأدوات" : "Tools", form.tools], [language === "ar" ? "المنصات" : "Platforms", form.platforms_worked_with]] },
-    { step: 5, title: stepTitle(wizardSteps[4]), values: [[language === "ar" ? "اللغات" : "Languages", form.spoken_languages.map((entry) => `${entry.language} (${entry.level})`)], [language === "ar" ? "الشهادات" : "Certifications", form.certifications_text], [language === "ar" ? "ملف الشهادة" : "Certification file", fileName(form.certifications_file)]] },
+    { step: 5, title: stepTitle(wizardSteps[4]), values: [[language === "ar" ? "اللغات" : "Languages", form.spoken_languages.map((entry) => `${optionLabel(entry.language === "Other" ? entry.language_other || entry.language : entry.language)} (${optionLabel(entry.level === "Other" ? entry.level_other || entry.level : entry.level)})`)], [language === "ar" ? "الشهادات" : "Certifications", form.certifications_text], [language === "ar" ? "ملف الشهادة" : "Certification file", fileName(form.certifications_file)]] },
     { step: 6, title: stepTitle(wizardSteps[5]), values: [[language === "ar" ? "ملف CV" : "CV file", fileName(form.current_cv_file)], [language === "ar" ? "لغات CV" : "CV languages", form.selected_cv_languages], [language === "ar" ? "التصميم" : "Design", form.cv_design_preference], [language === "ar" ? "البلد" : "Country", form.current_country]] },
   ];
 
@@ -317,14 +320,14 @@ export default function HomePage() {
 
       <section className="mx-auto max-w-7xl px-4 py-8 md:px-8">
         <div className="payment-panel">
-          <div><p className="section-kicker">Manual payment</p><h2>{language === "ar" ? "الدفع عبر Sofizpay" : language === "fr" ? "Paiement via Sofizpay" : "Pay with Sofizpay"}</h2><p>{language === "ar" ? "بعد إرسال الطلب، يمكن لفريق CVUp تأكيد الدفع يدويًا ومتابعة معالجة طلبك." : language === "fr" ? "Après l’envoi de votre demande, l’équipe CVUp peut confirmer votre paiement manuellement et poursuivre le traitement." : "After submitting your request, the CVUp team can confirm your payment manually and continue processing."}</p></div>
-          <a className="button-contact button-sofizpay" href="https://sofizpay.com/en/" target="_blank" rel="noreferrer">Pay with Sofizpay <span aria-hidden="true">↗</span></a>
+          <div><p className="section-kicker">{language === "ar" ? "الدفع اليدوي" : language === "fr" ? "Paiement manuel" : "Manual payment"}</p><h2>{language === "ar" ? "الدفع عبر Sofizpay" : language === "fr" ? "Paiement via Sofizpay" : "Pay with Sofizpay"}</h2><p>{language === "ar" ? "بعد إرسال الطلب، يمكن لفريق CVUp تأكيد الدفع يدويًا ومتابعة معالجة طلبك." : language === "fr" ? "Après l’envoi de votre demande, l’équipe CVUp peut confirmer votre paiement manuellement et poursuivre le traitement." : "After submitting your request, the CVUp team can confirm your payment manually and continue processing."}</p></div>
+          <a className="button-contact button-sofizpay" href="https://sofizpay.com/en/" target="_blank" rel="noreferrer">{language === "ar" ? "ادفع عبر Sofizpay" : language === "fr" ? "Payer avec Sofizpay" : "Pay with Sofizpay"} <span aria-hidden="true">↗</span></a>
         </div>
       </section>
 
       <section id="form" className="mx-auto max-w-5xl px-4 py-10 md:px-8">
         <div className="form-panel rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm md:p-8">
-          <div className="section-kicker">CVUp / your next professional move</div>
+          <div className="section-kicker">{language === "ar" ? "CVUp / خطوتك المهنية القادمة" : language === "fr" ? "CVUp / votre prochaine étape professionnelle" : "CVUp / your next professional move"}</div>
           <h2 className="text-2xl font-bold text-slate-900">{language === "ar" ? "املأ طلب السيرة الذاتية الاحترافية" : language === "fr" ? "Remplissez votre demande de CV professionnel" : getText(language, "formTitle")}</h2>
           <p className="mt-2 text-slate-600">{getText(language, "formDescription")}</p>
 
@@ -464,7 +467,7 @@ export default function HomePage() {
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                 >
                   {professionalFields.map((field) => (
-                    <option key={field} value={field}>{field}</option>
+                    <option key={field} value={field}>{optionLabel(field)}</option>
                   ))}
                 </select>
               </label>
@@ -474,7 +477,7 @@ export default function HomePage() {
                 <input
                   value={form.target_role}
                   onChange={(e) => handleFieldChange("target_role", e.target.value)}
-                  placeholder="Digital Marketing Manager, Accountant, HR Officer..."
+                  placeholder={language === "ar" ? "مثال: مدير تسويق رقمي، محاسب، مسؤول موارد بشرية..." : language === "fr" ? "Ex. : Responsable marketing digital, Comptable, Chargé RH..." : "Digital Marketing Manager, Accountant, HR Officer..."}
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                 />
               </label>
@@ -513,7 +516,7 @@ export default function HomePage() {
                         handleFieldChange("selected_cv_languages", next.slice(0, form.cv_language_count));
                       }}
                     />
-                    <span>{languageOption}</span>
+                    <span>{optionLabel(languageOption)}</span>
                   </label>
                 ))}
               </div>
@@ -575,7 +578,7 @@ export default function HomePage() {
                         handleFieldChange("professional_evidence", next);
                       }}
                     />
-                    <span>{item === "Other" ? getText(language, "professionalEvidenceOther") : item}</span>
+                    <span>{item === "Other" ? getText(language, "professionalEvidenceOther") : optionLabel(item)}</span>
                   </label>
                 ))}
               </div>
@@ -605,7 +608,7 @@ export default function HomePage() {
                           handleFieldChange("platforms_worked_with", next);
                         }}
                       />
-                      <span>{item === "Other" ? getText(language, "platformsOther") : item}</span>
+                      <span>{item === "Other" ? getText(language, "platformsOther") : optionLabel(item)}</span>
                     </label>
                   ))}
                 </div>
@@ -635,7 +638,7 @@ export default function HomePage() {
                         handleFieldChange("tools", next);
                       }}
                     />
-                    <span>{tool}</span>
+                    <span>{optionLabel(tool)}</span>
                   </label>
                 ))}
               </div>
@@ -718,7 +721,7 @@ export default function HomePage() {
                           handleFieldChange("collaboration_types", next);
                         }}
                       />
-                      <span>{item === "Other" ? getText(language, "collaborationOther") : item}</span>
+                      <span>{item === "Other" ? getText(language, "collaborationOther") : optionLabel(item)}</span>
                     </label>
                   ))}
                 </div>
@@ -755,7 +758,7 @@ export default function HomePage() {
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "workAuthorization")}</span>
                   <select value={form.work_authorization} onChange={(e) => handleFieldChange("work_authorization", e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500">
-                    {["Citizen / National", "Permanent resident", "Valid work permit", "Need employer sponsorship", "Not sure", "Other"].map((option) => <option key={option} value={option}>{option === "Other" ? getText(language, "workAuthorizationOther") : option}</option>)}
+                    {["Citizen / National", "Permanent resident", "Valid work permit", "Need employer sponsorship", "Not sure", "Other"].map((option) => <option key={option} value={option}>{option === "Other" ? getText(language, "workAuthorizationOther") : optionLabel(option)}</option>)}
                   </select>
                 </label>
                 {form.work_authorization === "Other" && <input value={form.work_authorization_other} onChange={(e) => handleFieldChange("work_authorization_other", e.target.value)} placeholder={getText(language, "otherSpecify")} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500" />}
@@ -789,7 +792,7 @@ export default function HomePage() {
                         "Italian",
                         "Other",
                       ].map((option) => (
-                        <option key={option} value={option}>{option}</option>
+                        <option key={option} value={option}>{optionLabel(option)}</option>
                       ))}
                     </select>
                     <select
@@ -802,7 +805,7 @@ export default function HomePage() {
                       className="rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                     >
                       {languageLevels.map((level) => (
-                        <option key={level} value={level}>{level}</option>
+                        <option key={level} value={level}>{optionLabel(level)}</option>
                       ))}
                     </select>
                     {entry.language === "Other" && (
@@ -876,7 +879,7 @@ export default function HomePage() {
                     rows={3}
                     value={form.certifications_text}
                     onChange={(e) => handleFieldChange("certifications_text", e.target.value)}
-                    placeholder="Certification or training name"
+                    placeholder={language === "ar" ? "اسم الشهادة أو التكوين" : language === "fr" ? "Nom de la certification ou de la formation" : "Certification or training name"}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                   />
                   <input
@@ -888,7 +891,7 @@ export default function HomePage() {
                     value={form.certifications_link}
                     onChange={(e) => handleFieldChange("certifications_link", e.target.value)}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
-                    placeholder="Optional link"
+                    placeholder={language === "ar" ? "رابط اختياري" : language === "fr" ? "Lien facultatif" : "Optional link"}
                   />
                 </div>
               )}
@@ -904,7 +907,7 @@ export default function HomePage() {
                       checked={form.cv_design_preference === option}
                       onChange={() => handleFieldChange("cv_design_preference", option)}
                     />
-                    <span className="text-sm">{option === "Other" ? getText(language, "designOther") : option}</span>
+                    <span className="text-sm">{option === "Other" ? getText(language, "designOther") : optionLabel(option)}</span>
                   </label>
                 ))}
               </div>
@@ -918,7 +921,7 @@ export default function HomePage() {
                   <input
                     value={form.cv_template_link}
                     onChange={(e) => handleFieldChange("cv_template_link", e.target.value)}
-                    placeholder="Template link"
+                    placeholder={language === "ar" ? "رابط القالب" : language === "fr" ? "Lien du modèle" : "Template link"}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                   />
                 </div>
@@ -1007,7 +1010,7 @@ export default function HomePage() {
               disabled={isSubmitting}
               className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? "Submitting..." : getText(language, "submit")}
+              {isSubmitting ? (language === "ar" ? "جارٍ الإرسال..." : language === "fr" ? "Envoi en cours..." : "Submitting...") : getText(language, "submit")}
             </button>
           </form>
               <div className="wizard-controls"><button type="button" className="wizard-control wizard-control--back" onClick={() => moveStep(-1)} disabled={currentStep === 1}>{language === "ar" ? "السابق" : language === "fr" ? "Précédent" : "Back"}</button>{currentStep < 7 ? <button type="button" className="wizard-control wizard-control--next" onClick={() => moveStep(1)}>{language === "ar" ? "التالي" : language === "fr" ? "Continuer" : "Continue"}</button> : null}</div>
