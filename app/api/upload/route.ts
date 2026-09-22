@@ -50,6 +50,24 @@ function safeKindSegment(kind: string) {
   return kind.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 80);
 }
 
+function resolveMimeType(file: File) {
+  if (file.type && allowedMimeTypes.has(file.type)) return file.type;
+
+  const extension = file.name.toLowerCase().split(".").pop();
+  const byExtension: Record<string, string> = {
+    pdf: "application/pdf",
+    doc: "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    txt: "text/plain",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+  };
+
+  return extension ? byExtension[extension] || null : null;
+}
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -71,7 +89,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "File must be between 1 byte and 10 MB." }, { status: 400 });
     }
 
-    if (file.type && !allowedMimeTypes.has(file.type)) {
+    const contentType = resolveMimeType(file);
+    if (!contentType) {
       return NextResponse.json({ error: "Unsupported file type." }, { status: 400 });
     }
 
@@ -95,7 +114,7 @@ export async function POST(request: Request) {
       .upload(storagePath, file, {
         cacheControl: "3600",
         upsert: false,
-        contentType: file.type || "application/octet-stream",
+        contentType,
       });
 
     if (error || !data?.path) {
@@ -109,7 +128,7 @@ export async function POST(request: Request) {
         .update({
           [fields.path]: data.path,
           [fields.name]: file.name,
-          [fields.type]: file.type || null,
+          [fields.type]: contentType,
         })
         .eq("id", requestId)
         .eq("request_code", verified.requestCode);
@@ -123,7 +142,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       path: data.path,
       file_name: file.name,
-      file_type: file.type || null,
+      file_type: contentType,
     });
   } catch (error) {
     console.error("Upload error:", error instanceof Error ? error.message : "Unknown upload error");
