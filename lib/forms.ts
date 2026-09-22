@@ -211,6 +211,10 @@ const optionLabels: Record<string, Record<FormOptionLanguage, string>> = {
   "Education / Training": { ar: "التعليم / التدريب", fr: "Éducation / Formation", en: "Education / Training" },
   "Customer Service": { ar: "خدمة العملاء", fr: "Service client", en: "Customer Service" },
   "Other": { ar: "أخرى", fr: "Autre", en: "Other" },
+  "Yes": { ar: "نعم", fr: "Oui", en: "Yes" },
+  "No": { ar: "لا", fr: "Non", en: "No" },
+  "General CV": { ar: "سيرة ذاتية عامة", fr: "CV général", en: "General CV" },
+  "CV targeted to a specific job": { ar: "سيرة ذاتية موجهة لوظيفة معينة", fr: "CV ciblé sur un poste", en: "CV targeted to a specific job" },
 
   "Social Media Management": { ar: "إدارة وسائل التواصل الاجتماعي", fr: "Gestion des réseaux sociaux", en: "Social Media Management" },
   "Content Creation": { ar: "إنشاء المحتوى", fr: "Création de contenu", en: "Content Creation" },
