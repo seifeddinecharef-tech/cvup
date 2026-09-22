@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAdminRequestByCode } from "@/lib/admin-data";
-import { getAnalysis } from "@/lib/analysis-data";
-import { AdminAnalysisActions } from "@/components/admin-analysis-actions";
-import { AdminAnalysisView } from "@/components/admin-analysis-view";
+import { AdminWorkStatusControls } from "@/components/admin-work-status-controls";
 import { AdminPaymentControls } from "@/components/admin-payment-controls";
 
 export const dynamic = "force-dynamic";
@@ -35,13 +33,6 @@ export default async function AdminRequestDetailPage({
 
   if (!request) {
     notFound();
-  }
-
-  let storedAnalysis = null;
-  try {
-    if (request.id) storedAnalysis = await getAnalysis(request.id);
-  } catch {
-    storedAnalysis = null;
   }
 
   const rawPayload = asRecord(request.raw_payload);
@@ -94,22 +85,6 @@ export default async function AdminRequestDetailPage({
     },
   ];
 
-  const statusOptions = [
-    "NEW",
-    "ANALYZING",
-    "NEEDS_REVIEW",
-    "READY_TO_GENERATE",
-    "GENERATING",
-    "READY_FOR_REVIEW",
-    "APPROVED",
-    "WAITING_PAYMENT",
-    "PAID",
-    "IN_PROGRESS",
-    "REVIEW",
-    "READY",
-    "DELIVERED",
-    "CANCELLED",
-  ];
 
   const detailFields = [
     ["Request code", request.request_code],
@@ -150,12 +125,10 @@ export default async function AdminRequestDetailPage({
             >
               Back to list
             </Link>
-            {request.request_code ? <AdminAnalysisActions requestCode={request.request_code} /> : null}
             {request.request_code ? <Link href={`/api/admin/requests/${encodeURIComponent(request.request_code)}/export`} className="admin-button admin-button--secondary">Download dossier ZIP</Link> : null}
           </div>
         </div>
 
-        {storedAnalysis ? <AdminAnalysisView analysis={storedAnalysis.analysis} /> : <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">No analysis saved yet.</div>}
 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -200,22 +173,7 @@ export default async function AdminRequestDetailPage({
           ))}
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-900">Status management</h3>
-          <label className="mt-4 block text-sm font-medium text-slate-700">
-            Change status
-            <select
-              defaultValue={request.status || "NEW"}
-              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
-            >
-              {statusOptions.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        {request.request_code ? <AdminWorkStatusControls requestCode={request.request_code} initialStatus={request.status} /> : null}
       </div>
     </main>
   );
