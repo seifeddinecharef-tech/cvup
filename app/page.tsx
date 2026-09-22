@@ -17,7 +17,6 @@ import {
 import { getText, languages, type LanguageCode } from "@/lib/i18n";
 
 const supportingQuestionKeys = [
-  "job_description",
   "achievements",
   "additional_experience",
   "missing_information",
@@ -203,9 +202,9 @@ export default function HomePage() {
     <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3">
       <p className="mb-3 text-sm text-slate-600">
         {ui(
-          "يمكنك إضافة رابط أو تحميل ملف داعم، وكلاهما اختياري.",
-          "Vous pouvez ajouter un lien ou téléverser un fichier justificatif. Les deux sont facultatifs.",
-          "You can add a link or upload a supporting file. Both are optional."
+          "يمكنك إضافة رابط أو تحميل ملف داعم، وكلاهما اختياري. الحد الأقصى للملف 10 MB.",
+          "Vous pouvez ajouter un lien ou téléverser un fichier justificatif. Les deux sont facultatifs. Taille maximale : 10 Mo.",
+          "You can add a link or upload a supporting file. Both are optional. Maximum file size: 10 MB."
         )}
       </p>
       <div className="grid gap-3 md:grid-cols-2">
@@ -220,6 +219,7 @@ export default function HomePage() {
           <span className="sr-only">{ui("تحميل ملف داعم", "Téléverser un fichier justificatif", "Upload supporting file")}</span>
           <input
             type="file"
+            accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp"
             onChange={(event) => setSupportingFiles((current) => ({ ...current, [questionKey]: event.target.files?.[0] ?? null }))}
             className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
           />
@@ -524,7 +524,6 @@ export default function HomePage() {
                   onChange={(e) => handleFieldChange("full_name", e.target.value)}
                   className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-slate-500"
                 />
-                {supportingMaterialFields("additional_professional_information")}
               </label>
             </div>
 
