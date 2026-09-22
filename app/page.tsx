@@ -15,7 +15,7 @@ import {
   getFormOptionLabel,
 } from "@/lib/forms";
 import { getText, languages, type LanguageCode } from "@/lib/i18n";
-import { getSupabaseClient } from "@/lib/supabase";
+import { getSupabaseBrowserClient } from "@/lib/supabase-client";
 
 const supportingQuestionKeys = [
   "achievements",
@@ -116,7 +116,7 @@ function WhatsAppIcon() {
 
 export default function HomePage() {
   const router = useRouter();
-  const supabase = useMemo(() => getSupabaseClient(), []);
+  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const sofizpayUrl = process.env.NEXT_PUBLIC_SOFIZPAY_PAYMENT_URL?.trim();
   const [language, setLanguage] = useState<LanguageCode>("fr");
   const [form, setForm] = useState(initialForm);
