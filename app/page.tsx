@@ -15,6 +15,7 @@ import {
   getFormOptionLabel,
 } from "@/lib/forms";
 import { getText, languages, type LanguageCode } from "@/lib/i18n";
+import { getSupabaseClient } from "@/lib/supabase";
 
 const supportingQuestionKeys = [
   "achievements",
@@ -115,6 +116,7 @@ function WhatsAppIcon() {
 
 export default function HomePage() {
   const router = useRouter();
+  const supabase = useMemo(() => getSupabaseClient(), []);
   const sofizpayUrl = process.env.NEXT_PUBLIC_SOFIZPAY_PAYMENT_URL?.trim();
   const [language, setLanguage] = useState<LanguageCode>("fr");
   const [form, setForm] = useState(initialForm);
@@ -303,24 +305,71 @@ export default function HomePage() {
       }
 
       const uploadFile = async (file: File, kind: string) => {
-        const uploadBody = new FormData();
-        uploadBody.append("file", file);
-        uploadBody.append("requestId", requestId);
-        uploadBody.append("kind", kind);
-        uploadBody.append("token", submissionToken);
+        const prepareResponse = await fetch("/api/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId,
+            kind,
+            token: submissionToken,
+            fileName: file.name,
+            fileType: file.type || null,
+            fileSize: file.size,
+          }),
+        });
+        const prepared = await prepareResponse.json();
 
-        const uploadResponse = await fetch("/api/upload", { method: "POST", body: uploadBody });
-        const uploadResult = await uploadResponse.json();
-
-        if (!uploadResponse.ok || !uploadResult?.path) {
-          throw new Error(uploadResult?.error || ui(
-            "تعذر رفع أحد الملفات.",
-            "Le téléversement d’un fichier a échoué.",
-            "A file could not be uploaded."
+        if (!prepareResponse.ok || !prepared?.path || !prepared?.upload_token) {
+          throw new Error(prepared?.error || ui(
+            "تعذر تجهيز رفع أحد الملفات.",
+            "Impossible de préparer le téléversement d’un fichier.",
+            "A file upload could not be prepared."
           ));
         }
 
-        return uploadResult as { path: string; file_name?: string; file_type?: string | null };
+        const { error: storageError } = await supabase.storage
+          .from("cvup-requests")
+          .uploadToSignedUrl(prepared.path, prepared.upload_token, file, {
+            cacheControl: "3600",
+            contentType: prepared.content_type || file.type || undefined,
+          });
+
+        if (storageError) {
+          throw new Error(ui(
+            "تعذر رفع أحد الملفات إلى التخزين.",
+            "Le téléversement d’un fichier vers le stockage a échoué.",
+            "A file could not be uploaded to storage."
+          ));
+        }
+
+        const finalizeResponse = await fetch("/api/upload", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId,
+            kind,
+            token: submissionToken,
+            path: prepared.path,
+            fileName: file.name,
+            fileType: prepared.content_type || file.type || null,
+            fileSize: file.size,
+          }),
+        });
+        const finalized = await finalizeResponse.json();
+
+        if (!finalizeResponse.ok) {
+          throw new Error(finalized?.error || ui(
+            "تم رفع الملف لكن تعذر حفظ معلوماته.",
+            "Le fichier a été téléversé mais ses informations n’ont pas pu être enregistrées.",
+            "The file was uploaded, but its metadata could not be saved."
+          ));
+        }
+
+        return {
+          path: String(prepared.path),
+          file_name: file.name,
+          file_type: prepared.content_type || file.type || null,
+        };
       };
 
       const primaryFiles: Array<{ file: File | null; kind: string }> = [
