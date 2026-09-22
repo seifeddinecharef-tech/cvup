@@ -29,6 +29,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Invalid payload." }, { status: 400 });
     }
 
+    if (typeof payload.website === "string" && payload.website.trim()) {
+      return NextResponse.json({ success: false, error: "Invalid payload." }, { status: 400 });
+    }
+
     if (!payload.full_name || !payload.phone || !payload.email || !payload.cv_type || !payload.form_language) {
       return NextResponse.json({ success: false, error: "Missing required fields." }, { status: 400 });
     }
@@ -68,6 +72,9 @@ export async function POST(request: Request) {
     }
 
     const requestCode = generateRequestCode();
+    const rawPayload = { ...payload };
+    delete rawPayload.website;
+
     const supportingMaterials = Array.isArray(payload.supporting_materials)
       ? payload.supporting_materials
           .filter((item: unknown): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
@@ -133,7 +140,7 @@ export async function POST(request: Request) {
       job_description_file_name: null,
       job_description_file_type: null,
       supporting_materials: supportingMaterials,
-      raw_payload: payload,
+      raw_payload: rawPayload,
     };
 
     const supabase = getSupabaseServerClient();
