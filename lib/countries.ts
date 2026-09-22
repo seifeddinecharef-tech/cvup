@@ -5,15 +5,12 @@ export type CountryCode = (typeof countryCodes)[number];
 export function getCountryOptions(locale: "ar" | "fr" | "en") {
   const displayNames = new Intl.DisplayNames([locale], { type: "region" });
 
-  return countryCodes
-    .map((code) => ({
-      code,
-      label: displayNames.of(code) || code,
-    }))
-    .sort((a, b) => {
-      const byLabel = a.label < b.label ? -1 : a.label > b.label ? 1 : 0;
-      return byLabel || (a.code < b.code ? -1 : a.code > b.code ? 1 : 0);
-    });
+  // Keep a stable ISO-code order on both SSR and browser hydration.
+  // Locale-aware sorting can differ between Node ICU and the browser ICU.
+  return countryCodes.map((code) => ({
+    code,
+    label: displayNames.of(code) || code,
+  }));
 }
 
 export function getCountryLabel(code: string, locale: "ar" | "fr" | "en") {
