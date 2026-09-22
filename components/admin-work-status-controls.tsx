@@ -1,8 +1,10 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 const workStatuses = ["NEW", "IN_PROGRESS", "READY", "DELIVERED", "CANCELLED"] as const;
+type WorkStatus = (typeof workStatuses)[number];
 
 export function AdminWorkStatusControls({
   requestCode,
@@ -11,31 +13,41 @@ export function AdminWorkStatusControls({
   requestCode: string;
   initialStatus?: string | null;
 }) {
-  const safeInitialStatus = workStatuses.includes((initialStatus ?? "NEW") as (typeof workStatuses)[number])
-    ? (initialStatus as (typeof workStatuses)[number])
+  const router = useRouter();
+  const safeInitialStatus = workStatuses.includes((initialStatus ?? "NEW") as WorkStatus)
+    ? (initialStatus as WorkStatus)
     : "NEW";
-  const [status, setStatus] = useState<(typeof workStatuses)[number]>(safeInitialStatus);
+  const [status, setStatus] = useState<WorkStatus>(safeInitialStatus);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  async function save() {
+  async function save(nextStatus: WorkStatus = status) {
     setSaving(true);
     setMessage(null);
     try {
       const response = await fetch(`/api/admin/requests/${encodeURIComponent(requestCode)}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: nextStatus }),
+        cache: "no-store",
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Status update failed.");
-      setStatus(result.request?.status || status);
-      setMessage("Work status saved.");
+
+      const persistedStatus = (result.request?.status || nextStatus) as WorkStatus;
+      setStatus(persistedStatus);
+      setMessage("Saved");
+      router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Status update failed.");
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleStatusChange(nextStatus: WorkStatus) {
+    setStatus(nextStatus);
+    await save(nextStatus);
   }
 
   return (
@@ -50,14 +62,18 @@ export function AdminWorkStatusControls({
       <div className="admin-form-grid">
         <label>
           Status
-          <select value={status} onChange={(event) => setStatus(event.target.value as (typeof workStatuses)[number])}>
+          <select
+            value={status}
+            disabled={saving}
+            onChange={(event) => void handleStatusChange(event.target.value as WorkStatus)}
+          >
             {workStatuses.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
         </label>
       </div>
       <div className="admin-panel__actions">
-        <button type="button" className="admin-button admin-button--primary" onClick={save} disabled={saving}>
-          {saving ? "Saving..." : "Save work status"}
+        <button type="button" className="admin-button admin-button--primary" onClick={() => void save()} disabled={saving}>
+          {saving ? "Saving..." : "Save again"}
         </button>
         {message ? <span className="admin-message">{message}</span> : null}
       </div>
