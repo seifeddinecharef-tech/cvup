@@ -839,11 +839,50 @@ export default function HomePage() {
       <section className="mx-auto max-w-7xl px-4 py-8 md:px-8">
         <h2 className="mb-6 text-2xl font-bold text-slate-900">{getText(language, "includedTitle")}</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {["ATS-friendly structure", "professional rewriting", "1, 2 or 3 language versions", "Cover Letter", "job-specific tailoring if needed", "professional formatting", "no invented information"].map((item) => (
-            <div key={item} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700">
-              {item}
-            </div>
-          ))}
+          {[
+            {
+              ar: "هيكلة متوافقة مع أنظمة ATS",
+              fr: "Structure compatible avec les ATS",
+              en: "ATS-friendly structure",
+            },
+            {
+              ar: "إعادة صياغة احترافية",
+              fr: "Réécriture professionnelle",
+              en: "Professional rewriting",
+            },
+            {
+              ar: "نسخة بلغة واحدة أو لغتين أو 3 لغات",
+              fr: "Version en 1, 2 ou 3 langues",
+              en: "1, 2 or 3 language versions",
+            },
+            {
+              ar: "رسالة تحفيزية",
+              fr: "Lettre de motivation",
+              en: "Cover Letter",
+            },
+            {
+              ar: "تخصيص السيرة الذاتية حسب المنصب عند الحاجة",
+              fr: "Adaptation au poste ciblé si nécessaire",
+              en: "Job-specific tailoring if needed",
+            },
+            {
+              ar: "تنسيق احترافي",
+              fr: "Mise en page professionnelle",
+              en: "Professional formatting",
+            },
+            {
+              ar: "بدون اختلاق معلومات",
+              fr: "Aucune information inventée",
+              en: "No invented information",
+            },
+          ].map((item) => {
+            const label = language === "ar" ? item.ar : language === "fr" ? item.fr : item.en;
+            return (
+              <div key={item.en} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700">
+                {label}
+              </div>
+            );
+          })}
         </div>
       </section>
 
