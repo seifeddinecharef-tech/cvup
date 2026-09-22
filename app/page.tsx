@@ -47,13 +47,19 @@ const initialSupportingFiles: Record<SupportingQuestionKey, (File | null)[]> = O
   supportingQuestionKeys.map((key) => [key, [null]])
 ) as Record<SupportingQuestionKey, (File | null)[]>;
 
-const initialExtraLinks: Record<PrimaryAttachmentKey, string[]> = Object.fromEntries(
-  primaryAttachmentKeys.map((key) => [key, []])
-) as Record<PrimaryAttachmentKey, string[]>;
+const initialExtraLinks: Record<PrimaryAttachmentKey, string[]> = {
+  job_description: [],
+  current_cv: [],
+  certifications: [],
+  template: [],
+};
 
-const initialExtraFiles: Record<PrimaryAttachmentKey, (File | null)[]> = Object.fromEntries(
-  primaryAttachmentKeys.map((key) => [key, []])
-) as Record<PrimaryAttachmentKey, (File | null)[]>;
+const initialExtraFiles: Record<PrimaryAttachmentKey, (File | null)[]> = {
+  job_description: [],
+  current_cv: [],
+  certifications: [],
+  template: [],
+};
 
 const initialForm = {
   form_language: "fr",
