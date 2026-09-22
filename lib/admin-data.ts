@@ -56,10 +56,6 @@ export type CvRequestRow = {
   [key: string]: unknown;
 };
 
-function normalizeEnvValue(value: string | undefined) {
-  return value?.replace(/^\uFEFF/, "").trim();
-}
-
 export async function getAdminRequests(): Promise<CvRequestRow[]> {
   noStore();
   const supabase = getSupabaseServerClient();
@@ -74,19 +70,7 @@ export async function getAdminRequests(): Promise<CvRequestRow[]> {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error(
-      JSON.stringify(
-        {
-          projectUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-          keyLength: normalizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY)?.length ?? 0,
-          keyPrefix: normalizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY)?.slice(0, 6) ?? "",
-          query: "SELECT * FROM public.cv_requests ORDER BY created_at DESC",
-          error,
-        },
-        null,
-        2
-      )
-    );
+    console.error("Admin request query failed:", error.message);
     throw new Error(error.message || "Failed to load CVUp requests.");
   }
 
@@ -108,19 +92,7 @@ export async function getAdminRequestByCode(requestCode: string): Promise<CvRequ
     .maybeSingle();
 
   if (error) {
-    console.error(
-      JSON.stringify(
-        {
-          projectUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-          keyLength: normalizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY)?.length ?? 0,
-          keyPrefix: normalizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY)?.slice(0, 6) ?? "",
-          query: `SELECT * FROM public.cv_requests WHERE request_code = '${requestCode}'`,
-          error,
-        },
-        null,
-        2
-      )
-    );
+    console.error("Admin request query failed:", error.message);
     throw new Error(error.message || "Failed to load request details.");
   }
 

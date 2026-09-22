@@ -3,6 +3,7 @@ import { getAdminRequestByCode } from "@/lib/admin-data";
 import { getSupabaseServerClient } from "@/lib/supabase";
 
 const bucket = "cvup-requests";
+const generatedBucket = "cvup-generated";
 
 type SupportingMaterial = {
   question_key?: string;
@@ -165,7 +166,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ req
       warnings.push(`${label}: ${name} could not be downloaded.`);
       continue;
     }
-    zip.file(`uploads/${name.replace(/[\\/]/g, "-")}`, await data.arrayBuffer());
+    const safeLabel = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const safeName = name.replace(/[\\/]/g, "-");
+    zip.file(`uploads/${safeLabel}--${safeName}`, await data.arrayBuffer());
   }
 
   for (const item of supporting) {
@@ -184,14 +187,30 @@ export async function GET(_request: Request, { params }: { params: Promise<{ req
   }
 
   const archive = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
-  const responseBody = new ArrayBuffer(archive.byteLength);
-  new Uint8Array(responseBody).set(archive);
+  const archiveName = `${safeSlug(String(request.full_name))}-${request.request_code}.zip`;
+  const requestFolder = safeSlug(String(request.id || request.request_code));
+  const generatedPath = `dossiers/${requestFolder}/${Date.now()}/${archiveName}`;
 
-  return new Response(responseBody, {
-    headers: {
-      "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="${safeSlug(String(request.full_name))}-${request.request_code}.zip"`,
-      "Cache-Control": "no-store",
-    },
-  });
+  const { error: uploadError } = await supabase.storage
+    .from(generatedBucket)
+    .upload(generatedPath, archive, {
+      contentType: "application/zip",
+      cacheControl: "60",
+      upsert: false,
+    });
+
+  if (uploadError) {
+    return new Response("Could not prepare dossier download.", { status: 500 });
+  }
+
+  const { data: signed, error: signedError } = await supabase.storage
+    .from(generatedBucket)
+    .createSignedUrl(generatedPath, 300, { download: true });
+
+  if (signedError || !signed?.signedUrl) {
+    await supabase.storage.from(generatedBucket).remove([generatedPath]);
+    return new Response("Could not create dossier download link.", { status: 500 });
+  }
+
+  return Response.redirect(signed.signedUrl, 307);
 }

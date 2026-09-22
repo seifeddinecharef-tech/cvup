@@ -22,6 +22,14 @@ function statusClass(status?: string | null) {
   }
 }
 
+function whatsappNumber(value?: string | null) {
+  const raw = String(value || "").trim();
+  let digits = raw.replace(/\D/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  if (digits.startsWith("0")) digits = `213${digits.slice(1)}`;
+  return digits;
+}
+
 function paymentClass(status?: string | null) {
   switch (status) {
     case "PAID": return "admin-status admin-status--paid";
@@ -134,7 +142,19 @@ export function AdminDashboard({ requests }: { requests: CvRequestRow[] }) {
                       <td>
                         <div className="admin-client-cell">
                           <strong>{request.full_name || "Unnamed client"}</strong>
-                          <span>{request.phone || request.email || "No contact"}</span>
+                          {request.phone && whatsappNumber(request.phone) ? (
+                            <a
+                              href={`https://wa.me/${whatsappNumber(request.phone)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="admin-whatsapp-link"
+                              title="Open WhatsApp conversation"
+                            >
+                              {request.phone} ↗
+                            </a>
+                          ) : (
+                            <span>{request.email || "No contact"}</span>
+                          )}
                         </div>
                       </td>
                       <td>
@@ -171,6 +191,17 @@ export function AdminDashboard({ requests }: { requests: CvRequestRow[] }) {
                     <span className={statusClass(request.status)}>{request.status || "NEW"}</span>
                   </div>
                   <div className="admin-request-card__meta">
+                    {request.phone && whatsappNumber(request.phone) ? (
+                      <a
+                        href={`https://wa.me/${whatsappNumber(request.phone)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="admin-whatsapp-link"
+                        title="Open WhatsApp conversation"
+                      >
+                        WhatsApp: {request.phone} ↗
+                      </a>
+                    ) : null}
                     <span>{request.target_role || request.target_job_title || "General CV"}</span>
                     <span>{request.professional_field || "—"}</span>
                     <span>{formatDate(request.created_at)}</span>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   professionalFields,
   commonToolsByField,
@@ -14,9 +15,11 @@ import {
   getFormOptionLabel,
 } from "@/lib/forms";
 import { getText, languages, type LanguageCode } from "@/lib/i18n";
+import { getSupabaseBrowserClient } from "@/lib/supabase-client";
+import { getCountryLabel, getCountryOptions } from "@/lib/countries";
+import { MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB } from "@/lib/upload-limits";
 
 const supportingQuestionKeys = [
-  "job_description",
   "achievements",
   "additional_experience",
   "missing_information",
@@ -25,37 +28,56 @@ const supportingQuestionKeys = [
 ] as const;
 
 type SupportingQuestionKey = (typeof supportingQuestionKeys)[number];
+const primaryAttachmentKeys = ["job_description", "current_cv", "certifications", "template"] as const;
+type PrimaryAttachmentKey = (typeof primaryAttachmentKeys)[number];
 
 type SupportingMaterialPayload = {
-  question_key: SupportingQuestionKey;
+  question_key: string;
   link: string | null;
   file_path?: string | null;
   file_name?: string | null;
   file_type?: string | null;
 };
 
-const initialSupportingLinks: Record<SupportingQuestionKey, string> = Object.fromEntries(
-  supportingQuestionKeys.map((key) => [key, ""])
-) as Record<SupportingQuestionKey, string>;
+const initialSupportingLinks: Record<SupportingQuestionKey, string[]> = Object.fromEntries(
+  supportingQuestionKeys.map((key) => [key, [""]])
+) as Record<SupportingQuestionKey, string[]>;
 
-const initialSupportingFiles: Record<SupportingQuestionKey, File | null> = Object.fromEntries(
-  supportingQuestionKeys.map((key) => [key, null])
-) as Record<SupportingQuestionKey, File | null>;
+const initialSupportingFiles: Record<SupportingQuestionKey, (File | null)[]> = Object.fromEntries(
+  supportingQuestionKeys.map((key) => [key, [null]])
+) as Record<SupportingQuestionKey, (File | null)[]>;
+
+const initialExtraLinks: Record<PrimaryAttachmentKey, string[]> = {
+  job_description: [],
+  current_cv: [],
+  certifications: [],
+  template: [],
+};
+
+const initialExtraFiles: Record<PrimaryAttachmentKey, (File | null)[]> = {
+  job_description: [],
+  current_cv: [],
+  certifications: [],
+  template: [],
+};
 
 const initialForm = {
   form_language: "fr",
   full_name: "",
   phone: "",
   email: "",
+  website: "",
   cv_type: "General CV",
   target_job_title: "",
   company_name: "",
   job_url: "",
   job_description_text: "",
+  job_description_file: null as File | null,
   professional_field: "Marketing / Communication",
   target_role: "",
   cv_language_count: 1,
   selected_cv_languages: ["French"],
+  selected_cv_languages_other: "",
   has_current_cv: "Yes",
   current_cv_file: null as File | null,
   optional_cv_link: "",
@@ -113,14 +135,19 @@ function WhatsAppIcon() {
 }
 
 export default function HomePage() {
+  const router = useRouter();
+  const sofizpayUrl = process.env.NEXT_PUBLIC_SOFIZPAY_PAYMENT_URL?.trim();
   const [language, setLanguage] = useState<LanguageCode>("fr");
   const [form, setForm] = useState(initialForm);
   const [status, setStatus] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showFloatingCta, setShowFloatingCta] = useState(true);
   const [currentStep, setCurrentStep] = useState(1);
+  const [reviewEditStep, setReviewEditStep] = useState<number | null>(null);
   const [supportingLinks, setSupportingLinks] = useState(initialSupportingLinks);
   const [supportingFiles, setSupportingFiles] = useState(initialSupportingFiles);
+  const [extraLinks, setExtraLinks] = useState(initialExtraLinks);
+  const [extraFiles, setExtraFiles] = useState(initialExtraFiles);
   const formRef = useRef<HTMLFormElement>(null);
 
   const wizardSteps = [
@@ -133,19 +160,105 @@ export default function HomePage() {
     { ar: "مراجعة الطلب", fr: "Vérification", en: "Review" },
   ] as const;
   const stepTitle = (step: (typeof wizardSteps)[number]) => step[language];
-  const optionLabel = (value: string) => getFormOptionLabel(value, language);
+  const optionLabel = (value: string) => {
+    const label = getFormOptionLabel(value, language);
+    return value === "Other" ? `+ ${label}` : label;
+  };
   const ui = (ar: string, fr: string, en: string) => language === "ar" ? ar : language === "fr" ? fr : en;
+  const countryOptions = useMemo(() => getCountryOptions(language), [language]);
+  const countryLabel = (value: string) => getCountryLabel(value, language);
 
   useEffect(() => {
     document.getElementById("wizard-step-title")?.focus();
   }, [currentStep]);
 
+  function validationMessageFor(field: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) {
+    if (field.validity.valueMissing) {
+      return ui(
+        "هذا الحقل إجباري. يرجى إدخال المعلومة المطلوبة قبل المتابعة.",
+        "Ce champ est obligatoire. Veuillez renseigner l’information demandée avant de continuer.",
+        "This field is required. Please enter the requested information before continuing."
+      );
+    }
+    if (field.validity.typeMismatch && field.type === "email") {
+      return ui(
+        "يرجى إدخال بريد إلكتروني صحيح، مثال: name@example.com",
+        "Veuillez saisir une adresse e-mail valide, par exemple : name@example.com",
+        "Please enter a valid email address, for example: name@example.com"
+      );
+    }
+    if (field.validity.typeMismatch && field.type === "url") {
+      return ui(
+        "يرجى إدخال رابط كامل وصحيح، مثال: https://example.com",
+        "Veuillez saisir un lien complet et valide, par exemple : https://example.com",
+        "Please enter a complete valid link, for example: https://example.com"
+      );
+    }
+    if (field.validity.patternMismatch && field.dataset.validationKind === "latin-name") {
+      return ui(
+        "يرجى كتابة الاسم واللقب بالأحرف اللاتينية فقط كما تريد أن يظهرا في السيرة الذاتية.",
+        "Veuillez écrire le nom et le prénom uniquement en caractères latins, tels qu’ils doivent apparaître sur le CV.",
+        "Please write your full name using Latin characters only, exactly as it should appear on the CV."
+      );
+    }
+    if (field.validity.patternMismatch && field.dataset.validationKind === "phone") {
+      return ui(
+        "يرجى إدخال رقم واتساب صحيح مع رمز الدولة، مثال: +213 5XX XX XX XX",
+        "Veuillez saisir un numéro WhatsApp valide avec l’indicatif du pays, par exemple : +213 5XX XX XX XX",
+        "Please enter a valid WhatsApp number with country code, for example: +213 5XX XX XX XX"
+      );
+    }
+    return ui(
+      "المعلومة المدخلة غير صحيحة. يرجى مراجعتها وتصحيحها قبل المتابعة.",
+      "La valeur saisie n’est pas valide. Veuillez la vérifier et la corriger avant de continuer.",
+      "The entered value is not valid. Please review and correct it before continuing."
+    );
+  }
+
+  function clearInlineValidation(field: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) {
+    field.classList.remove("border-red-500", "focus:border-red-500", "bg-red-50");
+    field.removeAttribute("aria-invalid");
+    const container = field.closest("label") ?? field.parentElement;
+    container?.querySelector(":scope > [data-inline-validation-error]")?.remove();
+  }
+
+  function showInlineValidation(field: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) {
+    clearInlineValidation(field);
+    field.classList.add("border-red-500", "focus:border-red-500", "bg-red-50");
+    field.setAttribute("aria-invalid", "true");
+    const message = document.createElement("p");
+    message.dataset.inlineValidationError = "true";
+    message.className = "mt-2 text-sm font-medium text-red-600";
+    message.setAttribute("role", "alert");
+    message.textContent = validationMessageFor(field);
+    const container = field.closest("label") ?? field.parentElement;
+    container?.appendChild(message);
+  }
+
+  function handleInvalidField(event: React.InvalidEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const field = event.target;
+    if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+      showInlineValidation(field);
+    }
+  }
+
+  function handleValidationInput(event: React.FormEvent<HTMLFormElement>) {
+    const field = event.target;
+    if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+      if (field.checkValidity()) clearInlineValidation(field);
+    }
+  }
+
   function validateCurrentStep() {
     if (!formRef.current || currentStep === 7) return true;
     const fields = Array.from(formRef.current.querySelectorAll<HTMLElement>(`[data-wizard-step="${currentStep}"] input, [data-wizard-step="${currentStep}"] select, [data-wizard-step="${currentStep}"] textarea`));
     const invalid = fields.find((field) => field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement ? !field.checkValidity() : false);
-    if (invalid && "reportValidity" in invalid) {
-      (invalid as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).reportValidity();
+    if (invalid) {
+      const invalidField = invalid as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+      showInlineValidation(invalidField);
+      invalidField.focus({ preventScroll: true });
+      invalidField.scrollIntoView({ behavior: "smooth", block: "center" });
       return false;
     }
     return true;
@@ -153,7 +266,20 @@ export default function HomePage() {
 
   function moveStep(direction: 1 | -1) {
     if (direction === 1 && !validateCurrentStep()) return;
-    setCurrentStep((step) => Math.min(7, Math.max(1, step + direction)));
+
+    if (direction === 1 && reviewEditStep === currentStep) {
+      setReviewEditStep(null);
+      setCurrentStep(7);
+    } else {
+      setCurrentStep((step) => Math.min(7, Math.max(1, step + direction)));
+    }
+
+    document.getElementById("form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function editReviewStep(step: number) {
+    setReviewEditStep(step);
+    setCurrentStep(step);
     document.getElementById("form")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -166,11 +292,11 @@ export default function HomePage() {
   const fileName = (file: File | null) => file?.name || "—";
   const reviewGroups = [
     { step: 1, title: stepTitle(wizardSteps[0]), values: [[ui("الاسم", "Nom", "Name"), form.full_name], [ui("الهاتف", "Téléphone", "Phone"), form.phone], [ui("البريد", "E-mail", "Email"), form.email]] },
-    { step: 2, title: stepTitle(wizardSteps[1]), values: [[ui("نوع السيرة", "Type de CV", "CV type"), form.cv_type], [ui("الدور", "Rôle", "Role"), form.target_role], [ui("المجال", "Domaine", "Field"), form.professional_field], [ui("الوظيفة", "Poste visé", "Job title"), form.target_job_title], [ui("الشركة", "Entreprise", "Company"), form.company_name]] },
+    { step: 2, title: stepTitle(wizardSteps[1]), values: [[ui("نوع السيرة", "Type de CV", "CV type"), form.cv_type], [ui("الدور", "Rôle", "Role"), form.target_role], [ui("المجال", "Domaine", "Field"), form.professional_field], [ui("الوظيفة", "Poste visé", "Job title"), form.target_job_title], [ui("الشركة", "Entreprise", "Company"), form.company_name], [ui("ملف وصف الوظيفة", "Fichier de l’offre", "Job description file"), fileName(form.job_description_file)]] },
     { step: 3, title: stepTitle(wizardSteps[2]), values: [[ui("المسؤوليات", "Responsabilités", "Responsibilities"), form.professional_evidence], [ui("الإنجازات", "Réalisations", "Achievements"), form.measurable_achievements_text], [ui("خبرة إضافية", "Expérience complémentaire", "Additional experience"), form.additional_experience_text]] },
     { step: 4, title: stepTitle(wizardSteps[3]), values: [[ui("الأدوات", "Outils", "Tools"), form.tools], [ui("المنصات", "Plateformes", "Platforms"), form.platforms_worked_with]] },
     { step: 5, title: stepTitle(wizardSteps[4]), values: [[ui("اللغات", "Langues", "Languages"), form.spoken_languages.map((entry) => `${optionLabel(entry.language === "Other" ? entry.language_other || entry.language : entry.language)} (${optionLabel(entry.level === "Other" ? entry.level_other || entry.level : entry.level)})`)], [ui("الشهادات", "Certifications", "Certifications"), form.certifications_text], [ui("ملف الشهادة", "Fichier de certification", "Certification file"), fileName(form.certifications_file)]] },
-    { step: 6, title: stepTitle(wizardSteps[5]), values: [[ui("ملف CV", "Fichier CV", "CV file"), fileName(form.current_cv_file)], [ui("لغات CV", "Langues du CV", "CV languages"), form.selected_cv_languages], [ui("التصميم", "Design", "Design"), form.cv_design_preference], [ui("البلد", "Pays", "Country"), form.current_country]] },
+    { step: 6, title: stepTitle(wizardSteps[5]), values: [[ui("ملف CV", "Fichier CV", "CV file"), fileName(form.current_cv_file)], [ui("لغات CV", "Langues du CV", "CV languages"), form.selected_cv_languages.map((item) => item === "Other" ? form.selected_cv_languages_other || optionLabel(item) : optionLabel(item))], [ui("التصميم", "Design", "Design"), form.cv_design_preference], [ui("ملف القالب", "Fichier modèle", "Template file"), fileName(form.cv_template_file)], [ui("البلد", "Pays", "Country"), form.current_country ? countryLabel(form.current_country) : "—"], [ui("الجنسية", "Nationalité", "Nationality"), form.nationality ? countryLabel(form.nationality) : "—"]] },
   ];
 
   useEffect(() => {
@@ -196,34 +322,203 @@ export default function HomePage() {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
-  const supportingMaterialFields = (questionKey: SupportingQuestionKey) => (
-    <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3">
-      <p className="mb-3 text-sm text-slate-600">
-        {ui(
-          "يمكنك إضافة رابط أو تحميل ملف داعم، وكلاهما اختياري.",
-          "Vous pouvez ajouter un lien ou téléverser un fichier justificatif. Les deux sont facultatifs.",
-          "You can add a link or upload a supporting file. Both are optional."
-        )}
-      </p>
-      <div className="grid gap-3 md:grid-cols-2">
-        <input
-          type="url"
-          value={supportingLinks[questionKey]}
-          onChange={(event) => setSupportingLinks((current) => ({ ...current, [questionKey]: event.target.value }))}
-          placeholder={ui("رابط اختياري", "Lien facultatif", "Optional link")}
-          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
-        />
-        <label className="block">
-          <span className="sr-only">{ui("تحميل ملف داعم", "Téléverser un fichier justificatif", "Upload supporting file")}</span>
-          <input
-            type="file"
-            onChange={(event) => setSupportingFiles((current) => ({ ...current, [questionKey]: event.target.files?.[0] ?? null }))}
-            className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
-          />
-        </label>
-      </div>
-    </div>
+  const fileLimitHint = () => (
+    <p className="mt-1 text-xs text-slate-500">
+      {ui(
+        `الحد الأقصى لكل ملف: ${MAX_UPLOAD_SIZE_MB} MB`,
+        `Taille maximale par fichier : ${MAX_UPLOAD_SIZE_MB} Mo`,
+        `Maximum size per file: ${MAX_UPLOAD_SIZE_MB} MB`
+      )}
+    </p>
   );
+
+  const supportingMaterialFields = (questionKey: SupportingQuestionKey) => {
+    const links = supportingLinks[questionKey];
+    const files = supportingFiles[questionKey];
+
+    return (
+      <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3">
+        <p className="mb-3 text-sm text-slate-600">
+          {ui(
+            `يمكنك إضافة أكثر من رابط وأكثر من ملف داعم. كل العناصر اختيارية، والحد الأقصى لكل ملف ${MAX_UPLOAD_SIZE_MB} MB.`,
+            `Vous pouvez ajouter plusieurs liens et plusieurs fichiers justificatifs. Tout est facultatif et chaque fichier est limité à ${MAX_UPLOAD_SIZE_MB} Mo.`,
+            `You can add multiple links and multiple supporting files. Everything is optional, with a ${MAX_UPLOAD_SIZE_MB} MB limit per file.`
+          )}
+        </p>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            {links.map((value, index) => (
+              <div key={`link-${questionKey}-${index}`} className="flex gap-2">
+                <input
+                  type="url"
+                  value={value}
+                  onChange={(event) => setSupportingLinks((current) => ({
+                    ...current,
+                    [questionKey]: current[questionKey].map((item, itemIndex) => itemIndex === index ? event.target.value : item),
+                  }))}
+                  placeholder={ui("رابط اختياري", "Lien facultatif", "Optional link")}
+                  className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
+                />
+                {links.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setSupportingLinks((current) => ({
+                      ...current,
+                      [questionKey]: current[questionKey].filter((_, itemIndex) => itemIndex !== index),
+                    }))}
+                    className="rounded-xl border border-slate-300 px-3 text-slate-500"
+                    aria-label={ui("حذف الرابط", "Supprimer le lien", "Remove link")}
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setSupportingLinks((current) => ({
+                ...current,
+                [questionKey]: [...current[questionKey], ""],
+              }))}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+            >
+              <span aria-hidden="true">+</span>
+              {ui("إضافة رابط آخر", "Ajouter un autre lien", "Add another link")}
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {files.map((file, index) => (
+              <div key={`file-${questionKey}-${index}`} className="flex gap-2">
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp"
+                  onChange={(event) => setSupportingFiles((current) => ({
+                    ...current,
+                    [questionKey]: current[questionKey].map((item, itemIndex) => itemIndex === index ? event.target.files?.[0] ?? null : item),
+                  }))}
+                  className="min-w-0 flex-1 rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
+                />
+                {files.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setSupportingFiles((current) => ({
+                      ...current,
+                      [questionKey]: current[questionKey].filter((_, itemIndex) => itemIndex !== index),
+                    }))}
+                    className="rounded-xl border border-slate-300 px-3 text-slate-500"
+                    aria-label={ui("حذف الملف", "Supprimer le fichier", "Remove file")}
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
+            ))}
+            {fileLimitHint()}
+            <button
+              type="button"
+              onClick={() => setSupportingFiles((current) => ({
+                ...current,
+                [questionKey]: [...current[questionKey], null],
+              }))}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+            >
+              <span aria-hidden="true">+</span>
+              {ui("إضافة ملف آخر", "Ajouter un autre fichier", "Add another file")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const extraAttachmentFields = (attachmentKey: PrimaryAttachmentKey) => {
+    const links = extraLinks[attachmentKey];
+    const files = extraFiles[attachmentKey];
+
+    return (
+      <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3">
+        {links.map((value, index) => (
+          <div key={`extra-link-${attachmentKey}-${index}`} className="mb-2 flex gap-2">
+            <input
+              type="url"
+              value={value}
+              onChange={(event) => setExtraLinks((current) => ({
+                ...current,
+                [attachmentKey]: current[attachmentKey].map((item, itemIndex) => itemIndex === index ? event.target.value : item),
+              }))}
+              placeholder={ui("رابط إضافي", "Lien supplémentaire", "Additional link")}
+              className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
+            />
+            <button
+              type="button"
+              onClick={() => setExtraLinks((current) => ({
+                ...current,
+                [attachmentKey]: current[attachmentKey].filter((_, itemIndex) => itemIndex !== index),
+              }))}
+              className="rounded-xl border border-slate-300 px-3 text-slate-500"
+              aria-label={ui("حذف الرابط", "Supprimer le lien", "Remove link")}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+
+        {files.map((file, index) => (
+          <div key={`extra-file-${attachmentKey}-${index}`} className="mb-2 flex gap-2">
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp"
+              onChange={(event) => setExtraFiles((current) => ({
+                ...current,
+                [attachmentKey]: current[attachmentKey].map((item, itemIndex) => itemIndex === index ? event.target.files?.[0] ?? null : item),
+              }))}
+              className="min-w-0 flex-1 rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => setExtraFiles((current) => ({
+                ...current,
+                [attachmentKey]: current[attachmentKey].filter((_, itemIndex) => itemIndex !== index),
+              }))}
+              className="rounded-xl border border-slate-300 px-3 text-slate-500"
+              aria-label={ui("حذف الملف", "Supprimer le fichier", "Remove file")}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+
+        {fileLimitHint()}
+
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setExtraLinks((current) => ({
+              ...current,
+              [attachmentKey]: [...current[attachmentKey], ""],
+            }))}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+          >
+            <span aria-hidden="true">+</span>
+            {ui("إضافة رابط آخر", "Ajouter un autre lien", "Add another link")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setExtraFiles((current) => ({
+              ...current,
+              [attachmentKey]: [...current[attachmentKey], null],
+            }))}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+          >
+            <span aria-hidden="true">+</span>
+            {ui("إضافة ملف آخر", "Ajouter un autre fichier", "Add another file")}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const handleLanguageSelect = (code: LanguageCode) => {
     setLanguage(code);
@@ -236,20 +531,51 @@ export default function HomePage() {
     setStatus(null);
 
     try {
-      const { current_cv_file, certifications_file, cv_template_file, ...serializableForm } = form;
-      void current_cv_file;
-      void certifications_file;
-      void cv_template_file;
+      const allFiles = [
+        form.current_cv_file,
+        form.job_description_file,
+        form.certifications_file,
+        form.cv_template_file,
+        ...Object.values(supportingFiles).flat(),
+        ...Object.values(extraFiles).flat(),
+      ].filter((file): file is File => file instanceof File);
 
-      const initialMaterials: SupportingMaterialPayload[] = supportingQuestionKeys
-        .map((questionKey) => ({
-          question_key: questionKey,
-          link: supportingLinks[questionKey].trim() || null,
-        }))
-        .filter((item) => item.link);
+      if (allFiles.some((file) => file.size > MAX_UPLOAD_SIZE_BYTES)) {
+        throw new Error(ui(
+          `حجم كل ملف يجب ألا يتجاوز ${MAX_UPLOAD_SIZE_MB} MB.`,
+          `Chaque fichier doit faire au maximum ${MAX_UPLOAD_SIZE_MB} Mo.`,
+          `Each file must be ${MAX_UPLOAD_SIZE_MB} MB or smaller.`
+        ));
+      }
+
+      const {
+        current_cv_file,
+        job_description_file,
+        certifications_file,
+        cv_template_file,
+        ...serializableForm
+      } = form;
+
+      const initialMaterials: SupportingMaterialPayload[] = [
+        ...supportingQuestionKeys.flatMap((questionKey) =>
+          supportingLinks[questionKey]
+            .map((link) => link.trim())
+            .filter(Boolean)
+            .map((link) => ({ question_key: questionKey, link }))
+        ),
+        ...primaryAttachmentKeys.flatMap((attachmentKey) =>
+          extraLinks[attachmentKey]
+            .map((link) => link.trim())
+            .filter(Boolean)
+            .map((link) => ({ question_key: attachmentKey, link }))
+        ),
+      ];
 
       const body = {
         ...serializableForm,
+        selected_cv_languages: form.selected_cv_languages.map((item) =>
+          item === "Other" ? form.selected_cv_languages_other.trim() || "Other" : item
+        ),
         recruitment_consent: form.recruitment_consent === "Yes",
         final_consent: form.final_consent,
         supporting_materials: initialMaterials,
@@ -269,62 +595,145 @@ export default function HomePage() {
 
       const requestCode = typeof result?.request_code === "string" ? result.request_code : "";
       const requestId = typeof result?.id === "string" ? result.id : "";
+      const submissionToken = typeof result?.submission_token === "string" ? result.submission_token : "";
 
-      if (requestCode && requestId) {
-        const materials = [...initialMaterials];
+      if (!requestCode || !requestId || !submissionToken) {
+        throw new Error(ui(
+          "تم إنشاء الطلب لكن تعذر تجهيز رفع الملفات.",
+          "La demande a été créée, mais le téléversement des fichiers n’a pas pu être préparé.",
+          "The request was created, but file upload could not be prepared."
+        ));
+      }
 
-        for (const questionKey of supportingQuestionKeys) {
-          const file = supportingFiles[questionKey];
-          if (!file) continue;
+      const uploadFile = async (file: File, kind: string) => {
+        const supabase = getSupabaseBrowserClient();
+        const prepareResponse = await fetch("/api/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId,
+            kind,
+            token: submissionToken,
+            fileName: file.name,
+            fileType: file.type || null,
+            fileSize: file.size,
+          }),
+        });
+        const prepared = await prepareResponse.json();
 
-          const uploadBody = new FormData();
-          uploadBody.append("file", file);
-          uploadBody.append("requestId", requestId);
-          uploadBody.append("folder", `supporting/${questionKey}/`);
-
-          const uploadResponse = await fetch("/api/upload", { method: "POST", body: uploadBody });
-          const uploadResult = await uploadResponse.json();
-
-          if (!uploadResponse.ok || !uploadResult?.path) {
-            throw new Error(ui(
-              "تم إنشاء الطلب لكن تعذر رفع أحد الملفات الداعمة.",
-              "La demande a été créée, mais un fichier justificatif n’a pas pu être téléversé.",
-              "The request was created, but a supporting file could not be uploaded."
-            ));
-          }
-
-          const existingIndex = materials.findIndex((item) => item.question_key === questionKey);
-          const material = {
-            question_key: questionKey,
-            link: supportingLinks[questionKey].trim() || null,
-            file_path: String(uploadResult.path),
-            file_name: file.name,
-            file_type: file.type || null,
-          };
-
-          if (existingIndex >= 0) materials[existingIndex] = material;
-          else materials.push(material);
+        if (!prepareResponse.ok || !prepared?.path || !prepared?.upload_token) {
+          throw new Error(prepared?.error || ui(
+            "تعذر تجهيز رفع أحد الملفات.",
+            "Impossible de préparer le téléversement d’un fichier.",
+            "A file upload could not be prepared."
+          ));
         }
 
-        if (materials.length) {
-          const materialsResponse = await fetch(`/api/requests/${encodeURIComponent(requestCode)}/supporting-materials`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ materials }),
+        const { error: storageError } = await supabase.storage
+          .from("cvup-requests")
+          .uploadToSignedUrl(prepared.path, prepared.upload_token, file, {
+            cacheControl: "3600",
+            contentType: prepared.content_type || file.type || undefined,
           });
 
-          if (!materialsResponse.ok) {
-            throw new Error(ui(
-              "تم إنشاء الطلب لكن تعذر حفظ المرفقات الداعمة.",
-              "La demande a été créée, mais les pièces justificatives n’ont pas pu être enregistrées.",
-              "The request was created, but the supporting materials could not be saved."
-            ));
-          }
+        if (storageError) {
+          throw new Error(ui(
+            "تعذر رفع أحد الملفات إلى التخزين.",
+            "Le téléversement d’un fichier vers le stockage a échoué.",
+            "A file could not be uploaded to storage."
+          ));
+        }
+
+        const finalizeResponse = await fetch("/api/upload", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestId,
+            kind,
+            token: submissionToken,
+            path: prepared.path,
+            fileName: file.name,
+            fileType: prepared.content_type || file.type || null,
+            fileSize: file.size,
+          }),
+        });
+        const finalized = await finalizeResponse.json();
+
+        if (!finalizeResponse.ok) {
+          throw new Error(finalized?.error || ui(
+            "تم رفع الملف لكن تعذر حفظ معلوماته.",
+            "Le fichier a été téléversé mais ses informations n’ont pas pu être enregistrées.",
+            "The file was uploaded, but its metadata could not be saved."
+          ));
+        }
+
+        return {
+          path: String(prepared.path),
+          file_name: file.name,
+          file_type: prepared.content_type || file.type || null,
+        };
+      };
+
+      const primaryFiles: Array<{ file: File | null; kind: string }> = [
+        { file: current_cv_file, kind: "current_cv" },
+        { file: job_description_file, kind: "job_description" },
+        { file: certifications_file, kind: "certifications" },
+        { file: cv_template_file, kind: "template" },
+      ];
+
+      for (const item of primaryFiles) {
+        if (item.file) await uploadFile(item.file, item.kind);
+      }
+
+      const materials = [...initialMaterials];
+
+      for (const questionKey of supportingQuestionKeys) {
+        for (const file of supportingFiles[questionKey].filter((item): item is File => item instanceof File)) {
+          const uploadResult = await uploadFile(file, `supporting:${questionKey}`);
+          materials.push({
+            question_key: questionKey,
+            link: null,
+            file_path: String(uploadResult.path),
+            file_name: uploadResult.file_name || file.name,
+            file_type: uploadResult.file_type || file.type || null,
+          });
         }
       }
 
-      setStatus(requestCode ? ui(`تم إرسال الطلب: ${requestCode}`, `Demande envoyée : ${requestCode}`, `Request submitted: ${requestCode}`) : ui("تم إرسال الطلب", "Demande envoyée", "Request submitted"));
-      window.location.href = requestCode ? `/success?request_code=${encodeURIComponent(requestCode)}` : "/success";
+      for (const attachmentKey of primaryAttachmentKeys) {
+        for (const file of extraFiles[attachmentKey].filter((item): item is File => item instanceof File)) {
+          const uploadResult = await uploadFile(file, `supporting:${attachmentKey}`);
+          materials.push({
+            question_key: attachmentKey,
+            link: null,
+            file_path: String(uploadResult.path),
+            file_name: uploadResult.file_name || file.name,
+            file_type: uploadResult.file_type || file.type || null,
+          });
+        }
+      }
+
+      if (materials.length) {
+        const materialsResponse = await fetch(`/api/requests/${encodeURIComponent(requestCode)}/supporting-materials`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${submissionToken}`,
+          },
+          body: JSON.stringify({ materials }),
+        });
+
+        if (!materialsResponse.ok) {
+          throw new Error(ui(
+            "تم إنشاء الطلب لكن تعذر حفظ المرفقات الداعمة.",
+            "La demande a été créée, mais les pièces justificatives n’ont pas pu être enregistrées.",
+            "The request was created, but the supporting materials could not be saved."
+          ));
+        }
+      }
+
+      setStatus(ui(`تم إرسال الطلب: ${requestCode}`, `Demande envoyée : ${requestCode}`, `Request submitted: ${requestCode}`));
+      router.push(`/success?request_code=${encodeURIComponent(requestCode)}`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to submit your request.");
     } finally {
@@ -363,8 +772,8 @@ export default function HomePage() {
       </header>
 
       <section id="top" className="hero-band mx-auto max-w-7xl px-4 py-10 md:px-8 md:py-16">
-        <div className="grid items-center gap-10 lg:grid-cols-[1.2fr_0.8fr]">
-          <div>
+        <div className="hero-grid grid items-center gap-10 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="hero-copy-column">
             <div className="hero-brandline mb-5">
               <CvUpLogo />
               <span>Truth first / relevance / optimization</span>
@@ -393,7 +802,7 @@ export default function HomePage() {
             <p className="mt-4 max-w-xl text-sm text-slate-600">{getText(language, "ctaSecondary")}</p>
           </div>
 
-          <div className="how-panel">
+          <div className="how-panel hero-how-panel">
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{getText(language, "sectionHow")}</p>
             <div className="mt-4 space-y-4">
               {[
@@ -413,28 +822,67 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-8 md:px-8">
+      <section className="landing-section landing-section--options mx-auto max-w-7xl px-4 py-8 md:px-8">
         <h2 className="mb-6 text-2xl font-bold text-slate-900">{getText(language, "sectionOptions")}</h2>
         <div className="grid gap-5 md:grid-cols-2">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="landing-card rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-lg font-bold text-slate-900">{getText(language, "generalTitle")}</p>
             <p className="mt-3 text-slate-600">{getText(language, "generalText")}</p>
           </div>
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="landing-card rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-lg font-bold text-slate-900">{getText(language, "targetedTitle")}</p>
             <p className="mt-3 text-slate-600">{getText(language, "targetedText")}</p>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-8 md:px-8">
+      <section className="landing-section landing-section--included mx-auto max-w-7xl px-4 py-8 md:px-8">
         <h2 className="mb-6 text-2xl font-bold text-slate-900">{getText(language, "includedTitle")}</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {["ATS-friendly structure", "professional rewriting", "1, 2 or 3 language versions", "Cover Letter", "job-specific tailoring if needed", "professional formatting", "no invented information"].map((item) => (
-            <div key={item} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700">
-              {item}
-            </div>
-          ))}
+          {[
+            {
+              ar: "هيكلة متوافقة مع أنظمة ATS",
+              fr: "Structure compatible avec les ATS",
+              en: "ATS-friendly structure",
+            },
+            {
+              ar: "إعادة صياغة احترافية",
+              fr: "Réécriture professionnelle",
+              en: "Professional rewriting",
+            },
+            {
+              ar: "نسخة بلغة واحدة أو لغتين أو 3 لغات",
+              fr: "Version en 1, 2 ou 3 langues",
+              en: "1, 2 or 3 language versions",
+            },
+            {
+              ar: "رسالة تحفيزية",
+              fr: "Lettre de motivation",
+              en: "Cover Letter",
+            },
+            {
+              ar: "تخصيص السيرة الذاتية حسب المنصب عند الحاجة",
+              fr: "Adaptation au poste ciblé si nécessaire",
+              en: "Job-specific tailoring if needed",
+            },
+            {
+              ar: "تنسيق احترافي",
+              fr: "Mise en page professionnelle",
+              en: "Professional formatting",
+            },
+            {
+              ar: "بدون اختلاق معلومات",
+              fr: "Aucune information inventée",
+              en: "No invented information",
+            },
+          ].map((item) => {
+            const label = language === "ar" ? item.ar : language === "fr" ? item.fr : item.en;
+            return (
+              <div key={item.en} className="included-card rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700">
+                {label}
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -447,8 +895,12 @@ export default function HomePage() {
 
       <section className="mx-auto max-w-7xl px-4 py-8 md:px-8">
         <div className="payment-panel">
-          <div><p className="section-kicker">{language === "ar" ? "الدفع اليدوي" : language === "fr" ? "Paiement manuel" : "Manual payment"}</p><h2>{language === "ar" ? "الدفع عبر Sofizpay" : language === "fr" ? "Paiement via Sofizpay" : "Pay with Sofizpay"}</h2><p>{language === "ar" ? "بعد إرسال الطلب، يمكن لفريق CVUp تأكيد الدفع يدويًا ومتابعة معالجة طلبك." : language === "fr" ? "Après l’envoi de votre demande, l’équipe CVUp peut confirmer votre paiement manuellement et poursuivre le traitement." : "After submitting your request, the CVUp team can confirm your payment manually and continue processing."}</p></div>
-          <a className="button-contact button-sofizpay" href="https://sofizpay.com/en/" target="_blank" rel="noreferrer">{language === "ar" ? "ادفع عبر Sofizpay" : language === "fr" ? "Payer avec Sofizpay" : "Pay with Sofizpay"} <span aria-hidden="true">↗</span></a>
+          <div><p className="section-kicker">{language === "ar" ? "الدفع" : language === "fr" ? "Paiement" : "Payment"}</p><h2>{language === "ar" ? "دفع آمن وتأكيد يدوي" : language === "fr" ? "Paiement sécurisé et confirmation manuelle" : "Secure payment with manual confirmation"}</h2><p>{language === "ar" ? "بعد إرسال الطلب، نتواصل معك عبر واتساب لتأكيد الدفع ومتابعة معالجة طلبك." : language === "fr" ? "Après l’envoi de votre demande, nous vous contactons sur WhatsApp pour confirmer le paiement et poursuivre le traitement." : "After submitting your request, we contact you on WhatsApp to confirm payment and continue processing."}</p></div>
+          {sofizpayUrl ? (
+            <a className="button-contact button-sofizpay" href={sofizpayUrl} target="_blank" rel="noreferrer">{language === "ar" ? "ادفع عبر Sofizpay" : language === "fr" ? "Payer avec Sofizpay" : "Pay with Sofizpay"} <span aria-hidden="true">↗</span></a>
+          ) : (
+            <a className="button-contact button-sofizpay" href="https://wa.me/213794851081" target="_blank" rel="noreferrer">{language === "ar" ? "تواصل للدفع" : language === "fr" ? "Contacter pour payer" : "Contact to pay"} <span aria-hidden="true">↗</span></a>
+          )}
         </div>
       </section>
 
@@ -468,7 +920,7 @@ export default function HomePage() {
             </nav>
             <div className="wizard-main">
               <div className="wizard-heading"><span className="wizard-overline">{currentStep} / 7 · {Math.round((currentStep / 7) * 100)}%</span><h3 id="wizard-step-title" tabIndex={-1}>{stepTitle(wizardSteps[currentStep - 1])}</h3><p>{language === "ar" ? "أكمل هذه الخطوة ثم تابع عندما تكون جاهزًا." : language === "fr" ? "Complétez cette étape, puis continuez quand vous êtes prêt." : "Complete this step, then continue when you are ready."}</p></div>
-              <form ref={formRef} className="wizard-form mt-8 space-y-6" onSubmit={handleSubmit} data-current-step={currentStep}>
+              <form ref={formRef} className="wizard-form mt-8 space-y-6" onSubmit={handleSubmit} onInvalid={handleInvalidField} onInput={handleValidationInput} data-current-step={currentStep} noValidate>
             <div data-wizard-step="1" className="grid gap-5 md:grid-cols-2">
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "formLanguage")}</span>
@@ -487,11 +939,24 @@ export default function HomePage() {
                 <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "fullName")}</span>
                 <input
                   required
+                  pattern="[A-Za-zÀ-ÖØ-öø-ÿ' -]+"
+                  data-validation-kind="latin-name"
                   value={form.full_name}
                   onChange={(e) => handleFieldChange("full_name", e.target.value)}
                   className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-slate-500"
                 />
-                {supportingMaterialFields("additional_professional_information")}
+              </label>
+            </div>
+
+            <div className="absolute left-[-10000px] top-auto h-px w-px overflow-hidden" aria-hidden="true">
+              <label>
+                Website
+                <input
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={form.website}
+                  onChange={(event) => handleFieldChange("website", event.target.value)}
+                />
               </label>
             </div>
 
@@ -504,6 +969,8 @@ export default function HomePage() {
                   inputMode="tel"
                   autoComplete="tel"
                   aria-required="true"
+                  pattern="\\+?[0-9 ()-]{8,20}"
+                  data-validation-kind="phone"
                   value={form.phone}
                   onChange={(e) => handleFieldChange("phone", e.target.value)}
                   placeholder={language === "ar" ? "مثال: +213 5XX XX XX XX" : language === "fr" ? "Ex. : +213 5XX XX XX XX" : "Example: +213 5XX XX XX XX"}
@@ -577,14 +1044,19 @@ export default function HomePage() {
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                   />
                 </label>
-                <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "uploadJobDescription")}</span>
-                  <input
-                    type="file"
-                    onChange={(e) => handleFieldChange("current_cv_file", e.target.files?.[0] ?? null)}
-                    className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
-                  />
-                </label>
+                <div className="md:col-span-2">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "uploadJobDescription")}</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt"
+                      onChange={(e) => handleFieldChange("job_description_file", e.target.files?.[0] ?? null)}
+                      className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
+                    />
+                    {fileLimitHint()}
+                  </label>
+                  {extraAttachmentFields("job_description")}
+                </div>
                 <div className="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                   {getText(language, "note")}
                 </div>
@@ -653,6 +1125,14 @@ export default function HomePage() {
                   </label>
                 ))}
               </div>
+              {form.selected_cv_languages.includes("Other") ? (
+                <input
+                  value={form.selected_cv_languages_other}
+                  onChange={(event) => handleFieldChange("selected_cv_languages_other", event.target.value)}
+                  placeholder={ui("اكتب اللغة الأخرى", "Précisez l’autre langue", "Specify the other language")}
+                  className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
+                />
+              ) : null}
             </div>
 
             <div data-wizard-step="6">
@@ -682,15 +1162,18 @@ export default function HomePage() {
                       onChange={(e) => handleFieldChange("current_cv_file", e.target.files?.[0] ?? null)}
                       className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
                     />
+                    {fileLimitHint()}
                   </label>
                   <label className="block md:col-span-2">
                     <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "optionalLink")}</span>
                     <input
+                      type="url"
                       value={form.optional_cv_link}
                       onChange={(e) => handleFieldChange("optional_cv_link", e.target.value)}
                       className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                     />
                   </label>
+                  <div className="md:col-span-2">{extraAttachmentFields("current_cv")}</div>
                 </div>
               )}
             </div>
@@ -711,7 +1194,7 @@ export default function HomePage() {
                         handleFieldChange("professional_evidence", next);
                       }}
                     />
-                    <span>{item === "Other" ? getText(language, "professionalEvidenceOther") : optionLabel(item)}</span>
+                    <span>{item === "Other" ? `+ ${getText(language, "professionalEvidenceOther")}` : optionLabel(item)}</span>
                   </label>
                 ))}
               </div>
@@ -741,7 +1224,7 @@ export default function HomePage() {
                           handleFieldChange("platforms_worked_with", next);
                         }}
                       />
-                      <span>{item === "Other" ? getText(language, "platformsOther") : optionLabel(item)}</span>
+                      <span>{item === "Other" ? `+ ${getText(language, "platformsOther")}` : optionLabel(item)}</span>
                     </label>
                   ))}
                 </div>
@@ -858,7 +1341,7 @@ export default function HomePage() {
                           handleFieldChange("collaboration_types", next);
                         }}
                       />
-                      <span>{item === "Other" ? getText(language, "collaborationOther") : optionLabel(item)}</span>
+                      <span>{item === "Other" ? `+ ${getText(language, "collaborationOther")}` : optionLabel(item)}</span>
                     </label>
                   ))}
                 </div>
@@ -878,12 +1361,22 @@ export default function HomePage() {
               <p className="mt-2 text-sm text-slate-600">{getText(language, "eligibilityNote")}</p>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "currentCountry")}</span>
-                  <input value={form.current_country} onChange={(e) => handleFieldChange("current_country", e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500" />
+                  <span className="mb-2 block text-sm font-medium text-slate-700">
+                    {getText(language, "currentCountry")} <span className="font-normal text-slate-500">({ui("اختياري", "facultatif", "optional")})</span>
+                  </span>
+                  <select value={form.current_country} onChange={(e) => handleFieldChange("current_country", e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500">
+                    <option value="">{ui("اختر البلد", "Choisir un pays", "Choose a country")}</option>
+                    {countryOptions.map((country) => <option key={country.code} value={country.code}>{country.label}</option>)}
+                  </select>
                 </label>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "nationality")}</span>
-                  <input value={form.nationality} onChange={(e) => handleFieldChange("nationality", e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500" />
+                  <span className="mb-2 block text-sm font-medium text-slate-700">
+                    {getText(language, "nationality")} <span className="font-normal text-slate-500">({ui("اختياري", "facultatif", "optional")})</span>
+                  </span>
+                  <select value={form.nationality} onChange={(e) => handleFieldChange("nationality", e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500">
+                    <option value="">{ui("اختر الجنسية", "Choisir une nationalité", "Choose a nationality")}</option>
+                    {countryOptions.map((country) => <option key={country.code} value={country.code}>{country.label}</option>)}
+                  </select>
                 </label>
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "willingToRelocate")}</span>
@@ -895,7 +1388,7 @@ export default function HomePage() {
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "workAuthorization")}</span>
                   <select value={form.work_authorization} onChange={(e) => handleFieldChange("work_authorization", e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500">
-                    {["Citizen / National", "Permanent resident", "Valid work permit", "Need employer sponsorship", "Not sure", "Other"].map((option) => <option key={option} value={option}>{option === "Other" ? getText(language, "workAuthorizationOther") : optionLabel(option)}</option>)}
+                    {["Citizen / National", "Permanent resident", "Valid work permit", "Need employer sponsorship", "Not sure", "Other"].map((option) => <option key={option} value={option}>{option === "Other" ? `+ ${getText(language, "workAuthorizationOther")}` : optionLabel(option)}</option>)}
                   </select>
                 </label>
                 {form.work_authorization === "Other" && <input value={form.work_authorization_other} onChange={(e) => handleFieldChange("work_authorization_other", e.target.value)} placeholder={getText(language, "otherSpecify")} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500" />}
@@ -988,7 +1481,7 @@ export default function HomePage() {
                   onClick={() => handleFieldChange("spoken_languages", [...form.spoken_languages, { language: "Arabic", level: "Intermediate", professional_writing: false, language_other: "", level_other: "" }])}
                   className="rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
                 >
-                  {getText(language, "addLanguage")}
+                  <span aria-hidden="true">+</span> {getText(language, "addLanguage")}
                 </button>
               </div>
             </div>
@@ -1019,17 +1512,23 @@ export default function HomePage() {
                     placeholder={language === "ar" ? "اسم الشهادة أو التكوين" : language === "fr" ? "Nom de la certification ou de la formation" : "Certification or training name"}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                   />
+                  <div>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                      onChange={(e) => handleFieldChange("certifications_file", e.target.files?.[0] ?? null)}
+                      className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
+                    />
+                    {fileLimitHint()}
+                  </div>
                   <input
-                    type="file"
-                    onChange={(e) => handleFieldChange("certifications_file", e.target.files?.[0] ?? null)}
-                    className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
-                  />
-                  <input
+                    type="url"
                     value={form.certifications_link}
                     onChange={(e) => handleFieldChange("certifications_link", e.target.value)}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                     placeholder={language === "ar" ? "رابط اختياري" : language === "fr" ? "Lien facultatif" : "Optional link"}
                   />
+                  {extraAttachmentFields("certifications")}
                 </div>
               )}
             </div>
@@ -1044,23 +1543,29 @@ export default function HomePage() {
                       checked={form.cv_design_preference === option}
                       onChange={() => handleFieldChange("cv_design_preference", option)}
                     />
-                    <span className="text-sm">{option === "Other" ? getText(language, "designOther") : optionLabel(option)}</span>
+                    <span className="text-sm">{option === "Other" ? `+ ${getText(language, "designOther")}` : optionLabel(option)}</span>
                   </label>
                 ))}
               </div>
               {form.cv_design_preference === "I have a specific template" && (
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                      onChange={(e) => handleFieldChange("cv_template_file", e.target.files?.[0] ?? null)}
+                      className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
+                    />
+                    {fileLimitHint()}
+                  </div>
                   <input
-                    type="file"
-                    onChange={(e) => handleFieldChange("cv_template_file", e.target.files?.[0] ?? null)}
-                    className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
-                  />
-                  <input
+                    type="url"
                     value={form.cv_template_link}
                     onChange={(e) => handleFieldChange("cv_template_link", e.target.value)}
                     placeholder={language === "ar" ? "رابط القالب" : language === "fr" ? "Lien du modèle" : "Template link"}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                   />
+                  <div className="md:col-span-2">{extraAttachmentFields("template")}</div>
                 </div>
               )}
               {form.cv_design_preference === "Other" && (
@@ -1128,7 +1633,7 @@ export default function HomePage() {
             </div>
 
             <div data-wizard-step="7" className="review-grid">
-              {reviewGroups.map((group) => <section key={group.step} className="review-card"><div className="review-card__heading"><h4>{group.title}</h4><button type="button" onClick={() => setCurrentStep(group.step)}>{language === "ar" ? "تعديل" : language === "fr" ? "Modifier" : "Edit"}</button></div>{group.values.map(([label, value]) => <div key={String(label)} className="review-row"><span>{label}</span><strong>{reviewValue(value)}</strong></div>)}</section>)}
+              {reviewGroups.map((group) => <section key={group.step} className="review-card"><div className="review-card__heading"><h4>{group.title}</h4><button type="button" onClick={() => editReviewStep(group.step)}>{language === "ar" ? "تعديل" : language === "fr" ? "Modifier" : "Edit"}</button></div>{group.values.map(([label, value]) => <div key={String(label)} className="review-row"><span>{label}</span><strong>{reviewValue(value)}</strong></div>)}</section>)}
               <div className="review-price"><span>{language === "ar" ? "السعر النهائي" : language === "fr" ? "Prix final" : "Final price"}</span><strong>{language === "ar" ? "800 دج" : "800 DA"}</strong></div>
             </div>
 
@@ -1153,7 +1658,7 @@ export default function HomePage() {
               {isSubmitting ? (language === "ar" ? "جارٍ الإرسال..." : language === "fr" ? "Envoi en cours..." : "Submitting...") : getText(language, "submit")}
             </button>
           </form>
-              <div className="wizard-controls"><button type="button" className="wizard-control wizard-control--back" onClick={() => moveStep(-1)} disabled={currentStep === 1}>{language === "ar" ? "السابق" : language === "fr" ? "Précédent" : "Back"}</button>{currentStep < 7 ? <button type="button" className="wizard-control wizard-control--next" onClick={() => moveStep(1)}>{language === "ar" ? "التالي" : language === "fr" ? "Continuer" : "Continue"}</button> : null}</div>
+              <div className="wizard-controls"><button type="button" className="wizard-control wizard-control--back" onClick={() => moveStep(-1)} disabled={currentStep === 1}>{language === "ar" ? "السابق" : language === "fr" ? "Précédent" : "Back"}</button>{currentStep < 7 ? <button type="button" className="wizard-control wizard-control--next" onClick={() => moveStep(1)}>{reviewEditStep === currentStep ? (language === "ar" ? "حفظ والعودة للمراجعة" : language === "fr" ? "Enregistrer et revenir à la vérification" : "Save and return to review") : (language === "ar" ? "التالي" : language === "fr" ? "Continuer" : "Continue")}</button> : null}</div>
             </div>
           </div>
         </div>

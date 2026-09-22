@@ -45,7 +45,21 @@ function paymentClass(status?: string | null) {
 }
 
 function digits(value?: string | null) {
-  return String(value || "").replace(/\D/g, "");
+  let normalized = String(value || "").replace(/\D/g, "");
+  if (normalized.startsWith("00")) normalized = normalized.slice(2);
+  if (normalized.startsWith("0")) normalized = `213${normalized.slice(1)}`;
+  return normalized;
+}
+
+function countryDisplay(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return "—";
+  const normalized = value.trim();
+  if (!/^[A-Za-z]{2}$/.test(normalized)) return normalized;
+  try {
+    return new Intl.DisplayNames(["en"], { type: "region" }).of(normalized.toUpperCase()) || normalized;
+  } catch {
+    return normalized;
+  }
 }
 
 export default async function AdminRequestDetailPage({
@@ -83,8 +97,8 @@ export default async function AdminRequestDetailPage({
     ["Full name", request.full_name],
     ["Phone / WhatsApp", request.phone],
     ["Email", request.email],
-    ["Current country", rawPayload.current_country],
-    ["Nationality", rawPayload.nationality],
+    ["Current country", countryDisplay(rawPayload.current_country)],
+    ["Nationality", countryDisplay(rawPayload.nationality)],
     ["Willing to relocate", rawPayload.willing_to_relocate],
     ["Target countries", rawPayload.target_countries],
     ["Work authorization", rawPayload.work_authorization],
@@ -182,9 +196,9 @@ export default async function AdminRequestDetailPage({
               </a>
             ) : null}
             {request.request_code ? (
-              <Link href={`/api/admin/requests/${encodeURIComponent(request.request_code)}/export`} className="admin-button admin-button--primary">
+              <a href={`/api/admin/requests/${encodeURIComponent(request.request_code)}/export`} className="admin-button admin-button--primary">
                 Download dossier ZIP
-              </Link>
+              </a>
             ) : null}
             <AdminLogoutButton />
           </div>
