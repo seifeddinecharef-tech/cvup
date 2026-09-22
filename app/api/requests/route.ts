@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase";
-import { createRequestSubmissionToken } from "@/lib/request-submission-token";
+import { assertRequestSubmissionTokenConfigured, createRequestSubmissionToken } from "@/lib/request-submission-token";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,6 +19,7 @@ function generateRequestCode(): string {
 
 export async function POST(request: Request) {
   try {
+    assertRequestSubmissionTokenConfigured();
     const payload = await request.json();
 
     if (!payload || typeof payload !== "object") {
