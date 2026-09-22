@@ -33,10 +33,11 @@ CVUP_ADMIN_PASSWORD=
 CVUP_ADMIN_SESSION_SECRET=
 ```
 
-For production, also set a separate request-upload signing secret:
+For production, also set a separate request-upload signing secret and, when available, the real Sofizpay merchant checkout URL:
 
 ```env
 CVUP_REQUEST_TOKEN_SECRET=
+NEXT_PUBLIC_SOFIZPAY_PAYMENT_URL=
 ```
 
 If `CVUP_REQUEST_TOKEN_SECRET` is omitted, CVUp falls back to `CVUP_ADMIN_SESSION_SECRET`. Both secrets must be at least 32 characters.
