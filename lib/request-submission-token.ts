@@ -8,6 +8,10 @@ type RequestTokenPayload = {
   exp: number;
 };
 
+export function assertRequestSubmissionTokenConfigured() {
+  getSecret();
+}
+
 function getSecret() {
   const secret =
     process.env.CVUP_REQUEST_TOKEN_SECRET?.trim() ||
