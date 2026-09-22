@@ -14,15 +14,6 @@ export function getSupabaseClient(): SupabaseClient {
     );
   }
 
-  console.log(
-    JSON.stringify({
-      supabaseUrl,
-      keyType: "publishable",
-      keyLength: publishableKey.length,
-      keyPrefix: publishableKey.slice(0, 6),
-    })
-  );
-
   return createClient(supabaseUrl, publishableKey, {
     auth: {
       persistSession: false,
@@ -39,15 +30,6 @@ export function getSupabaseServerClient(): SupabaseClient {
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error("Missing Supabase server environment variables. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
   }
-
-  console.log(
-    JSON.stringify({
-      supabaseUrl,
-      keyType: "service_role",
-      keyLength: serviceRoleKey.length,
-      keyPrefix: serviceRoleKey.slice(0, 6),
-    })
-  );
 
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: {
