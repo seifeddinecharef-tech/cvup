@@ -11,6 +11,12 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
+function asArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+    : [];
+}
+
 function displayValue(value: unknown): string {
   if (Array.isArray(value)) return value.length ? value.join(", ") : "—";
   if (typeof value === "boolean") return value ? "Yes" : "No";
@@ -36,6 +42,7 @@ export default async function AdminRequestDetailPage({
   }
 
   const rawPayload = asRecord(request.raw_payload);
+  const supportingMaterials = asArray(request.supporting_materials);
   const dossierSections = [
     {
       title: "Professional Evidence",
@@ -152,6 +159,26 @@ export default async function AdminRequestDetailPage({
         </div>
 
         {request.request_code ? <AdminPaymentControls requestCode={request.request_code} payment={request} /> : null}
+
+        {supportingMaterials.length ? (
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-900">Supporting materials</h3>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              {supportingMaterials.map((item, index) => {
+                const link = typeof item.link === "string" ? item.link : "";
+                const fileName = typeof item.file_name === "string" ? item.file_name : "";
+                const question = typeof item.question_key === "string" ? item.question_key : `item-${index + 1}`;
+                return (
+                  <div key={`${question}-${index}`} className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{question.replace(/_/g, " ")}</p>
+                    {link ? <a href={link} target="_blank" rel="noreferrer" className="mt-2 block break-all text-sm font-medium text-blue-700 underline">Open supporting link</a> : null}
+                    <p className="mt-2 break-words text-sm text-slate-800">{fileName ? `File: ${fileName}` : "No uploaded file"}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
         <div className="space-y-4">
           {dossierSections.map((section) => (
