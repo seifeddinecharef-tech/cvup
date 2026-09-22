@@ -26,6 +26,14 @@ const supportingQuestionKeys = [
 
 type SupportingQuestionKey = (typeof supportingQuestionKeys)[number];
 
+type SupportingMaterialPayload = {
+  question_key: SupportingQuestionKey;
+  link: string | null;
+  file_path?: string | null;
+  file_name?: string | null;
+  file_type?: string | null;
+};
+
 const initialSupportingLinks: Record<SupportingQuestionKey, string> = Object.fromEntries(
   supportingQuestionKeys.map((key) => [key, ""])
 ) as Record<SupportingQuestionKey, string>;
@@ -233,7 +241,7 @@ export default function HomePage() {
       void certifications_file;
       void cv_template_file;
 
-      const initialMaterials = supportingQuestionKeys
+      const initialMaterials: SupportingMaterialPayload[] = supportingQuestionKeys
         .map((questionKey) => ({
           question_key: questionKey,
           link: supportingLinks[questionKey].trim() || null,
