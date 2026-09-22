@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSupabaseClient } from "@/lib/supabase";
+import { getSupabaseServerClient } from "@/lib/supabase";
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
-    const supabase = getSupabaseClient();
+    const supabase = getSupabaseServerClient();
     const file = formData.get("file") as File | null;
     const requestId = formData.get("requestId") as string | null;
     const folder = formData.get("folder") as string | null;
