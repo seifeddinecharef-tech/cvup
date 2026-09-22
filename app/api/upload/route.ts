@@ -135,13 +135,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Could not prepare secure upload." }, { status: 500 });
     }
 
-    return NextResponse.json({
-      path: storagePath,
-      upload_token: data.token,
-      content_type: contentType,
-      file_name: fileName,
-      is_primary: kindInfo.isPrimary,
-    });
+    return NextResponse.json(
+      {
+        path: storagePath,
+        upload_token: data.token,
+        content_type: contentType,
+        file_name: fileName,
+        is_primary: kindInfo.isPrimary,
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error) {
     console.error("Upload preparation error:", error instanceof Error ? error.message : "Unknown error");
     return NextResponse.json({ error: "Could not prepare upload." }, { status: 500 });
