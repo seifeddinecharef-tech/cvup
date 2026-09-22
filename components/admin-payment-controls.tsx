@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type Payment = { payment_status?: string | null; payment_method?: string | null; payment_reference?: string | null; payment_notes?: string | null; paid_at?: string | null };
@@ -9,6 +10,7 @@ function toDateTimeLocal(value?: string | null) {
 }
 
 export function AdminPaymentControls({ requestCode, payment }: { requestCode: string; payment: Payment }) {
+  const router = useRouter();
   const [form, setForm] = useState({ payment_status: payment.payment_status || "PENDING", payment_method: payment.payment_method || "", payment_reference: payment.payment_reference || "", payment_notes: payment.payment_notes || "", paid_at: toDateTimeLocal(payment.paid_at) });
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -30,6 +32,7 @@ export function AdminPaymentControls({ requestCode, payment }: { requestCode: st
         });
       }
       setMessage("Payment details saved.");
+      router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Payment update failed.");
     } finally {
