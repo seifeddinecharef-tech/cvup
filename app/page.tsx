@@ -117,7 +117,6 @@ function WhatsAppIcon() {
 
 export default function HomePage() {
   const router = useRouter();
-  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const sofizpayUrl = process.env.NEXT_PUBLIC_SOFIZPAY_PAYMENT_URL?.trim();
   const [language, setLanguage] = useState<LanguageCode>("fr");
   const [form, setForm] = useState(initialForm);
@@ -306,6 +305,7 @@ export default function HomePage() {
       }
 
       const uploadFile = async (file: File, kind: string) => {
+        const supabase = getSupabaseBrowserClient();
         const prepareResponse = await fetch("/api/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
