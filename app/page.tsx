@@ -115,6 +115,7 @@ function WhatsAppIcon() {
 
 export default function HomePage() {
   const router = useRouter();
+  const sofizpayUrl = process.env.NEXT_PUBLIC_SOFIZPAY_PAYMENT_URL?.trim();
   const [language, setLanguage] = useState<LanguageCode>("fr");
   const [form, setForm] = useState(initialForm);
   const [status, setStatus] = useState<string | null>(null);
@@ -496,8 +497,12 @@ export default function HomePage() {
 
       <section className="mx-auto max-w-7xl px-4 py-8 md:px-8">
         <div className="payment-panel">
-          <div><p className="section-kicker">{language === "ar" ? "الدفع اليدوي" : language === "fr" ? "Paiement manuel" : "Manual payment"}</p><h2>{language === "ar" ? "الدفع عبر Sofizpay" : language === "fr" ? "Paiement via Sofizpay" : "Pay with Sofizpay"}</h2><p>{language === "ar" ? "بعد إرسال الطلب، يمكن لفريق CVUp تأكيد الدفع يدويًا ومتابعة معالجة طلبك." : language === "fr" ? "Après l’envoi de votre demande, l’équipe CVUp peut confirmer votre paiement manuellement et poursuivre le traitement." : "After submitting your request, the CVUp team can confirm your payment manually and continue processing."}</p></div>
-          <a className="button-contact button-sofizpay" href="https://sofizpay.com/en/" target="_blank" rel="noreferrer">{language === "ar" ? "ادفع عبر Sofizpay" : language === "fr" ? "Payer avec Sofizpay" : "Pay with Sofizpay"} <span aria-hidden="true">↗</span></a>
+          <div><p className="section-kicker">{language === "ar" ? "الدفع" : language === "fr" ? "Paiement" : "Payment"}</p><h2>{language === "ar" ? "دفع آمن وتأكيد يدوي" : language === "fr" ? "Paiement sécurisé et confirmation manuelle" : "Secure payment with manual confirmation"}</h2><p>{language === "ar" ? "بعد إرسال الطلب، نتواصل معك عبر واتساب لتأكيد الدفع ومتابعة معالجة طلبك." : language === "fr" ? "Après l’envoi de votre demande, nous vous contactons sur WhatsApp pour confirmer le paiement et poursuivre le traitement." : "After submitting your request, we contact you on WhatsApp to confirm payment and continue processing."}</p></div>
+          {sofizpayUrl ? (
+            <a className="button-contact button-sofizpay" href={sofizpayUrl} target="_blank" rel="noreferrer">{language === "ar" ? "ادفع عبر Sofizpay" : language === "fr" ? "Payer avec Sofizpay" : "Pay with Sofizpay"} <span aria-hidden="true">↗</span></a>
+          ) : (
+            <a className="button-contact button-sofizpay" href="https://wa.me/213794851081" target="_blank" rel="noreferrer">{language === "ar" ? "تواصل للدفع" : language === "fr" ? "Contacter pour payer" : "Contact to pay"} <span aria-hidden="true">↗</span></a>
+          )}
         </div>
       </section>
 
