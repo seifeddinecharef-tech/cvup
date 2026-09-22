@@ -432,7 +432,8 @@ export default function HomePage() {
         form.job_description_file,
         form.certifications_file,
         form.cv_template_file,
-        ...Object.values(supportingFiles),
+        ...Object.values(supportingFiles).flat(),
+        ...Object.values(extraFiles).flat(),
       ].filter((file): file is File => file instanceof File);
 
       if (allFiles.some((file) => file.size > MAX_UPLOAD_SIZE_BYTES)) {
@@ -451,15 +452,26 @@ export default function HomePage() {
         ...serializableForm
       } = form;
 
-      const initialMaterials: SupportingMaterialPayload[] = supportingQuestionKeys
-        .map((questionKey) => ({
-          question_key: questionKey,
-          link: supportingLinks[questionKey].trim() || null,
-        }))
-        .filter((item) => item.link);
+      const initialMaterials: SupportingMaterialPayload[] = [
+        ...supportingQuestionKeys.flatMap((questionKey) =>
+          supportingLinks[questionKey]
+            .map((link) => link.trim())
+            .filter(Boolean)
+            .map((link) => ({ question_key: questionKey, link }))
+        ),
+        ...primaryAttachmentKeys.flatMap((attachmentKey) =>
+          extraLinks[attachmentKey]
+            .map((link) => link.trim())
+            .filter(Boolean)
+            .map((link) => ({ question_key: attachmentKey, link }))
+        ),
+      ];
 
       const body = {
         ...serializableForm,
+        selected_cv_languages: form.selected_cv_languages.map((item) =>
+          item === "Other" ? form.selected_cv_languages_other.trim() || "Other" : item
+        ),
         recruitment_consent: form.recruitment_consent === "Yes",
         final_consent: form.final_consent,
         supporting_materials: initialMaterials,
@@ -572,21 +584,29 @@ export default function HomePage() {
       const materials = [...initialMaterials];
 
       for (const questionKey of supportingQuestionKeys) {
-        const file = supportingFiles[questionKey];
-        if (!file) continue;
+        for (const file of supportingFiles[questionKey].filter((item): item is File => item instanceof File)) {
+          const uploadResult = await uploadFile(file, `supporting:${questionKey}`);
+          materials.push({
+            question_key: questionKey,
+            link: null,
+            file_path: String(uploadResult.path),
+            file_name: uploadResult.file_name || file.name,
+            file_type: uploadResult.file_type || file.type || null,
+          });
+        }
+      }
 
-        const uploadResult = await uploadFile(file, `supporting:${questionKey}`);
-        const existingIndex = materials.findIndex((item) => item.question_key === questionKey);
-        const material: SupportingMaterialPayload = {
-          question_key: questionKey,
-          link: supportingLinks[questionKey].trim() || null,
-          file_path: String(uploadResult.path),
-          file_name: uploadResult.file_name || file.name,
-          file_type: uploadResult.file_type || file.type || null,
-        };
-
-        if (existingIndex >= 0) materials[existingIndex] = material;
-        else materials.push(material);
+      for (const attachmentKey of primaryAttachmentKeys) {
+        for (const file of extraFiles[attachmentKey].filter((item): item is File => item instanceof File)) {
+          const uploadResult = await uploadFile(file, `supporting:${attachmentKey}`);
+          materials.push({
+            question_key: attachmentKey,
+            link: null,
+            file_path: String(uploadResult.path),
+            file_name: uploadResult.file_name || file.name,
+            file_type: uploadResult.file_type || file.type || null,
+          });
+        }
       }
 
       if (materials.length) {
