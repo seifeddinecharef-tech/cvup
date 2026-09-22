@@ -500,8 +500,13 @@ export default function HomePage() {
                 <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "phone")}</span>
                 <input
                   required
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  aria-required="true"
                   value={form.phone}
                   onChange={(e) => handleFieldChange("phone", e.target.value)}
+                  placeholder={language === "ar" ? "مثال: +213 5XX XX XX XX" : language === "fr" ? "Ex. : +213 5XX XX XX XX" : "Example: +213 5XX XX XX XX"}
                   className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-slate-500"
                 />
               </label>
