@@ -15,6 +15,25 @@ import {
 } from "@/lib/forms";
 import { getText, languages, type LanguageCode } from "@/lib/i18n";
 
+const supportingQuestionKeys = [
+  "job_description",
+  "achievements",
+  "additional_experience",
+  "missing_information",
+  "excluded_information",
+  "additional_professional_information",
+] as const;
+
+type SupportingQuestionKey = (typeof supportingQuestionKeys)[number];
+
+const initialSupportingLinks: Record<SupportingQuestionKey, string> = Object.fromEntries(
+  supportingQuestionKeys.map((key) => [key, ""])
+) as Record<SupportingQuestionKey, string>;
+
+const initialSupportingFiles: Record<SupportingQuestionKey, File | null> = Object.fromEntries(
+  supportingQuestionKeys.map((key) => [key, null])
+) as Record<SupportingQuestionKey, File | null>;
+
 const initialForm = {
   form_language: "fr",
   full_name: "",
@@ -92,6 +111,8 @@ export default function HomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showFloatingCta, setShowFloatingCta] = useState(true);
   const [currentStep, setCurrentStep] = useState(1);
+  const [supportingLinks, setSupportingLinks] = useState(initialSupportingLinks);
+  const [supportingFiles, setSupportingFiles] = useState(initialSupportingFiles);
   const formRef = useRef<HTMLFormElement>(null);
 
   const wizardSteps = [
@@ -167,6 +188,35 @@ export default function HomePage() {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
+  const supportingMaterialFields = (questionKey: SupportingQuestionKey) => (
+    <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3">
+      <p className="mb-3 text-sm text-slate-600">
+        {ui(
+          "يمكنك إضافة رابط أو تحميل ملف داعم، وكلاهما اختياري.",
+          "Vous pouvez ajouter un lien ou téléverser un fichier justificatif. Les deux sont facultatifs.",
+          "You can add a link or upload a supporting file. Both are optional."
+        )}
+      </p>
+      <div className="grid gap-3 md:grid-cols-2">
+        <input
+          type="url"
+          value={supportingLinks[questionKey]}
+          onChange={(event) => setSupportingLinks((current) => ({ ...current, [questionKey]: event.target.value }))}
+          placeholder={ui("رابط اختياري", "Lien facultatif", "Optional link")}
+          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
+        />
+        <label className="block">
+          <span className="sr-only">{ui("تحميل ملف داعم", "Téléverser un fichier justificatif", "Upload supporting file")}</span>
+          <input
+            type="file"
+            onChange={(event) => setSupportingFiles((current) => ({ ...current, [questionKey]: event.target.files?.[0] ?? null }))}
+            className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
+          />
+        </label>
+      </div>
+    </div>
+  );
+
   const handleLanguageSelect = (code: LanguageCode) => {
     setLanguage(code);
     setForm((current) => ({ ...current, form_language: code }));
@@ -178,10 +228,23 @@ export default function HomePage() {
     setStatus(null);
 
     try {
+      const { current_cv_file, certifications_file, cv_template_file, ...serializableForm } = form;
+      void current_cv_file;
+      void certifications_file;
+      void cv_template_file;
+
+      const initialMaterials = supportingQuestionKeys
+        .map((questionKey) => ({
+          question_key: questionKey,
+          link: supportingLinks[questionKey].trim() || null,
+        }))
+        .filter((item) => item.link);
+
       const body = {
-        ...form,
+        ...serializableForm,
         recruitment_consent: form.recruitment_consent === "Yes",
         final_consent: form.final_consent,
+        supporting_materials: initialMaterials,
       };
 
       const response = await fetch("/api/requests", {
@@ -197,7 +260,62 @@ export default function HomePage() {
       }
 
       const requestCode = typeof result?.request_code === "string" ? result.request_code : "";
-      setStatus(requestCode ? `Request submitted: ${requestCode}` : "Request submitted");
+      const requestId = typeof result?.id === "string" ? result.id : "";
+
+      if (requestCode && requestId) {
+        const materials = [...initialMaterials];
+
+        for (const questionKey of supportingQuestionKeys) {
+          const file = supportingFiles[questionKey];
+          if (!file) continue;
+
+          const uploadBody = new FormData();
+          uploadBody.append("file", file);
+          uploadBody.append("requestId", requestId);
+          uploadBody.append("folder", `supporting/${questionKey}/`);
+
+          const uploadResponse = await fetch("/api/upload", { method: "POST", body: uploadBody });
+          const uploadResult = await uploadResponse.json();
+
+          if (!uploadResponse.ok || !uploadResult?.path) {
+            throw new Error(ui(
+              "تم إنشاء الطلب لكن تعذر رفع أحد الملفات الداعمة.",
+              "La demande a été créée, mais un fichier justificatif n’a pas pu être téléversé.",
+              "The request was created, but a supporting file could not be uploaded."
+            ));
+          }
+
+          const existingIndex = materials.findIndex((item) => item.question_key === questionKey);
+          const material = {
+            question_key: questionKey,
+            link: supportingLinks[questionKey].trim() || null,
+            file_path: String(uploadResult.path),
+            file_name: file.name,
+            file_type: file.type || null,
+          };
+
+          if (existingIndex >= 0) materials[existingIndex] = material;
+          else materials.push(material);
+        }
+
+        if (materials.length) {
+          const materialsResponse = await fetch(`/api/requests/${encodeURIComponent(requestCode)}/supporting-materials`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ materials }),
+          });
+
+          if (!materialsResponse.ok) {
+            throw new Error(ui(
+              "تم إنشاء الطلب لكن تعذر حفظ المرفقات الداعمة.",
+              "La demande a été créée, mais les pièces justificatives n’ont pas pu être enregistrées.",
+              "The request was created, but the supporting materials could not be saved."
+            ));
+          }
+        }
+      }
+
+      setStatus(requestCode ? ui(`تم إرسال الطلب: ${requestCode}`, `Demande envoyée : ${requestCode}`, `Request submitted: ${requestCode}`) : ui("تم إرسال الطلب", "Demande envoyée", "Request submitted"));
       window.location.href = requestCode ? `/success?request_code=${encodeURIComponent(requestCode)}` : "/success";
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to submit your request.");
@@ -365,6 +483,7 @@ export default function HomePage() {
                   onChange={(e) => handleFieldChange("full_name", e.target.value)}
                   className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-slate-500"
                 />
+                {supportingMaterialFields("additional_professional_information")}
               </label>
             </div>
 
@@ -677,6 +796,7 @@ export default function HomePage() {
                     placeholder={getText(language, "achievementsPlaceholder")}
                     className="mt-3 w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-slate-500"
                   />
+                  {supportingMaterialFields("achievements")}
                 </>
               )}
             </div>
@@ -703,6 +823,7 @@ export default function HomePage() {
                   placeholder={getText(language, "additionalExperiencePlaceholder")}
                   className="mt-3 w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-slate-500"
                 />
+                <>{supportingMaterialFields("additional_experience")}</>
               )}
             </div>
 
@@ -946,6 +1067,7 @@ export default function HomePage() {
                   onChange={(e) => handleFieldChange("additional_information", e.target.value)}
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                 />
+                {supportingMaterialFields("missing_information")}
               </label>
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "excludedInfo")}</span>
@@ -955,6 +1077,7 @@ export default function HomePage() {
                   onChange={(e) => handleFieldChange("excluded_information", e.target.value)}
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                 />
+                {supportingMaterialFields("excluded_information")}
               </label>
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "finalProfessionalInfo")}</span>
