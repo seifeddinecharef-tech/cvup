@@ -165,7 +165,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ req
       warnings.push(`${label}: ${name} could not be downloaded.`);
       continue;
     }
-    zip.file(`uploads/${name.replace(/[\\/]/g, "-")}`, await data.arrayBuffer());
+    const safeLabel = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const safeName = name.replace(/[\\/]/g, "-");
+    zip.file(`uploads/${safeLabel}--${safeName}`, await data.arrayBuffer());
   }
 
   for (const item of supporting) {
