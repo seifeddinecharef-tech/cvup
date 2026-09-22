@@ -171,7 +171,7 @@ export async function POST(request: Request) {
         request_code: data.request_code,
         submission_token: submissionToken,
       },
-      { status: 201 }
+      { status: 201, headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {
     console.error(
