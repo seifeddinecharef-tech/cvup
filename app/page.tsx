@@ -28,22 +28,32 @@ const supportingQuestionKeys = [
 ] as const;
 
 type SupportingQuestionKey = (typeof supportingQuestionKeys)[number];
+const primaryAttachmentKeys = ["job_description", "current_cv", "certifications", "template"] as const;
+type PrimaryAttachmentKey = (typeof primaryAttachmentKeys)[number];
 
 type SupportingMaterialPayload = {
-  question_key: SupportingQuestionKey;
+  question_key: string;
   link: string | null;
   file_path?: string | null;
   file_name?: string | null;
   file_type?: string | null;
 };
 
-const initialSupportingLinks: Record<SupportingQuestionKey, string> = Object.fromEntries(
-  supportingQuestionKeys.map((key) => [key, ""])
-) as Record<SupportingQuestionKey, string>;
+const initialSupportingLinks: Record<SupportingQuestionKey, string[]> = Object.fromEntries(
+  supportingQuestionKeys.map((key) => [key, [""]])
+) as Record<SupportingQuestionKey, string[]>;
 
-const initialSupportingFiles: Record<SupportingQuestionKey, File | null> = Object.fromEntries(
-  supportingQuestionKeys.map((key) => [key, null])
-) as Record<SupportingQuestionKey, File | null>;
+const initialSupportingFiles: Record<SupportingQuestionKey, (File | null)[]> = Object.fromEntries(
+  supportingQuestionKeys.map((key) => [key, [null]])
+) as Record<SupportingQuestionKey, (File | null)[]>;
+
+const initialExtraLinks: Record<PrimaryAttachmentKey, string[]> = Object.fromEntries(
+  primaryAttachmentKeys.map((key) => [key, []])
+) as Record<PrimaryAttachmentKey, string[]>;
+
+const initialExtraFiles: Record<PrimaryAttachmentKey, (File | null)[]> = Object.fromEntries(
+  primaryAttachmentKeys.map((key) => [key, []])
+) as Record<PrimaryAttachmentKey, (File | null)[]>;
 
 const initialForm = {
   form_language: "fr",
@@ -61,6 +71,7 @@ const initialForm = {
   target_role: "",
   cv_language_count: 1,
   selected_cv_languages: ["French"],
+  selected_cv_languages_other: "",
   has_current_cv: "Yes",
   current_cv_file: null as File | null,
   optional_cv_link: "",
@@ -128,6 +139,8 @@ export default function HomePage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [supportingLinks, setSupportingLinks] = useState(initialSupportingLinks);
   const [supportingFiles, setSupportingFiles] = useState(initialSupportingFiles);
+  const [extraLinks, setExtraLinks] = useState(initialExtraLinks);
+  const [extraFiles, setExtraFiles] = useState(initialExtraFiles);
   const formRef = useRef<HTMLFormElement>(null);
 
   const wizardSteps = [
