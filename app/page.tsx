@@ -172,12 +172,93 @@ export default function HomePage() {
     document.getElementById("wizard-step-title")?.focus();
   }, [currentStep]);
 
+  function validationMessageFor(field: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) {
+    if (field.validity.valueMissing) {
+      return ui(
+        "هذا الحقل إجباري. يرجى إدخال المعلومة المطلوبة قبل المتابعة.",
+        "Ce champ est obligatoire. Veuillez renseigner l’information demandée avant de continuer.",
+        "This field is required. Please enter the requested information before continuing."
+      );
+    }
+    if (field.validity.typeMismatch && field.type === "email") {
+      return ui(
+        "يرجى إدخال بريد إلكتروني صحيح، مثال: name@example.com",
+        "Veuillez saisir une adresse e-mail valide, par exemple : name@example.com",
+        "Please enter a valid email address, for example: name@example.com"
+      );
+    }
+    if (field.validity.typeMismatch && field.type === "url") {
+      return ui(
+        "يرجى إدخال رابط كامل وصحيح، مثال: https://example.com",
+        "Veuillez saisir un lien complet et valide, par exemple : https://example.com",
+        "Please enter a complete valid link, for example: https://example.com"
+      );
+    }
+    if (field.validity.patternMismatch && field.dataset.validationKind === "latin-name") {
+      return ui(
+        "يرجى كتابة الاسم واللقب بالأحرف اللاتينية فقط كما تريد أن يظهرا في السيرة الذاتية.",
+        "Veuillez écrire le nom et le prénom uniquement en caractères latins, tels qu’ils doivent apparaître sur le CV.",
+        "Please write your full name using Latin characters only, exactly as it should appear on the CV."
+      );
+    }
+    if (field.validity.patternMismatch && field.dataset.validationKind === "phone") {
+      return ui(
+        "يرجى إدخال رقم واتساب صحيح مع رمز الدولة، مثال: +213 5XX XX XX XX",
+        "Veuillez saisir un numéro WhatsApp valide avec l’indicatif du pays, par exemple : +213 5XX XX XX XX",
+        "Please enter a valid WhatsApp number with country code, for example: +213 5XX XX XX XX"
+      );
+    }
+    return ui(
+      "المعلومة المدخلة غير صحيحة. يرجى مراجعتها وتصحيحها قبل المتابعة.",
+      "La valeur saisie n’est pas valide. Veuillez la vérifier et la corriger avant de continuer.",
+      "The entered value is not valid. Please review and correct it before continuing."
+    );
+  }
+
+  function clearInlineValidation(field: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) {
+    field.classList.remove("border-red-500", "focus:border-red-500", "bg-red-50");
+    field.removeAttribute("aria-invalid");
+    const container = field.closest("label") ?? field.parentElement;
+    container?.querySelector(":scope > [data-inline-validation-error]")?.remove();
+  }
+
+  function showInlineValidation(field: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) {
+    clearInlineValidation(field);
+    field.classList.add("border-red-500", "focus:border-red-500", "bg-red-50");
+    field.setAttribute("aria-invalid", "true");
+    const message = document.createElement("p");
+    message.dataset.inlineValidationError = "true";
+    message.className = "mt-2 text-sm font-medium text-red-600";
+    message.setAttribute("role", "alert");
+    message.textContent = validationMessageFor(field);
+    const container = field.closest("label") ?? field.parentElement;
+    container?.appendChild(message);
+  }
+
+  function handleInvalidField(event: React.InvalidEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const field = event.target;
+    if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+      showInlineValidation(field);
+    }
+  }
+
+  function handleValidationInput(event: React.FormEvent<HTMLFormElement>) {
+    const field = event.target;
+    if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+      if (field.checkValidity()) clearInlineValidation(field);
+    }
+  }
+
   function validateCurrentStep() {
     if (!formRef.current || currentStep === 7) return true;
     const fields = Array.from(formRef.current.querySelectorAll<HTMLElement>(`[data-wizard-step="${currentStep}"] input, [data-wizard-step="${currentStep}"] select, [data-wizard-step="${currentStep}"] textarea`));
     const invalid = fields.find((field) => field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement ? !field.checkValidity() : false);
-    if (invalid && "reportValidity" in invalid) {
-      (invalid as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).reportValidity();
+    if (invalid) {
+      const invalidField = invalid as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+      showInlineValidation(invalidField);
+      invalidField.focus({ preventScroll: true });
+      invalidField.scrollIntoView({ behavior: "smooth", block: "center" });
       return false;
     }
     return true;
@@ -800,7 +881,7 @@ export default function HomePage() {
             </nav>
             <div className="wizard-main">
               <div className="wizard-heading"><span className="wizard-overline">{currentStep} / 7 · {Math.round((currentStep / 7) * 100)}%</span><h3 id="wizard-step-title" tabIndex={-1}>{stepTitle(wizardSteps[currentStep - 1])}</h3><p>{language === "ar" ? "أكمل هذه الخطوة ثم تابع عندما تكون جاهزًا." : language === "fr" ? "Complétez cette étape, puis continuez quand vous êtes prêt." : "Complete this step, then continue when you are ready."}</p></div>
-              <form ref={formRef} className="wizard-form mt-8 space-y-6" onSubmit={handleSubmit} data-current-step={currentStep}>
+              <form ref={formRef} className="wizard-form mt-8 space-y-6" onSubmit={handleSubmit} onInvalid={handleInvalidField} onInput={handleValidationInput} data-current-step={currentStep} noValidate>
             <div data-wizard-step="1" className="grid gap-5 md:grid-cols-2">
               <label className="block">
                 <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "formLanguage")}</span>
@@ -819,6 +900,8 @@ export default function HomePage() {
                 <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "fullName")}</span>
                 <input
                   required
+                  pattern="[A-Za-zÀ-ÖØ-öø-ÿ' -]+"
+                  data-validation-kind="latin-name"
                   value={form.full_name}
                   onChange={(e) => handleFieldChange("full_name", e.target.value)}
                   className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-slate-500"
@@ -847,6 +930,8 @@ export default function HomePage() {
                   inputMode="tel"
                   autoComplete="tel"
                   aria-required="true"
+                  pattern="\\+?[0-9 ()-]{8,20}"
+                  data-validation-kind="phone"
                   value={form.phone}
                   onChange={(e) => handleFieldChange("phone", e.target.value)}
                   placeholder={language === "ar" ? "مثال: +213 5XX XX XX XX" : language === "fr" ? "Ex. : +213 5XX XX XX XX" : "Example: +213 5XX XX XX XX"}
