@@ -29,13 +29,31 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ re
   const cleaned = body.materials
     .filter((item) => item && typeof item.question_key === "string")
     .slice(0, 20)
-    .map((item) => ({
-      question_key: item.question_key.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80),
-      link: typeof item.link === "string" && item.link.trim() ? item.link.trim().slice(0, 2000) : null,
-      file_path: typeof item.file_path === "string" && item.file_path ? item.file_path.slice(0, 1000) : null,
-      file_name: typeof item.file_name === "string" && item.file_name ? item.file_name.slice(0, 255) : null,
-      file_type: typeof item.file_type === "string" && item.file_type ? item.file_type.slice(0, 150) : null,
-    }))
+    .map((item) => {
+      let link: string | null = null;
+      if (typeof item.link === "string" && item.link.trim()) {
+        try {
+          const url = new URL(item.link.trim());
+          if (url.protocol === "http:" || url.protocol === "https:") link = url.toString().slice(0, 2000);
+        } catch {
+          link = null;
+        }
+      }
+
+      const questionKey = item.question_key.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
+      const filePath = typeof item.file_path === "string" && item.file_path
+        ? item.file_path.slice(0, 1000)
+        : null;
+
+      const expectedPrefix = `requests/${verified.requestId}/`;
+      return {
+        question_key: questionKey,
+        link,
+        file_path: filePath?.startsWith(expectedPrefix) ? filePath : null,
+        file_name: typeof item.file_name === "string" && item.file_name ? item.file_name.slice(0, 255) : null,
+        file_type: typeof item.file_type === "string" && item.file_type ? item.file_type.slice(0, 150) : null,
+      };
+    })
     .filter((item) => item.question_key);
 
   const supabase = getSupabaseServerClient();
