@@ -14,7 +14,7 @@ export const professionalFields = [
   "Other",
 ] as const;
 
-export const cvLanguageOptions = ["Arabic", "French", "English"] as const;
+export const cvLanguageOptions = ["Arabic", "French", "English", "Other"] as const;
 
 export const commonToolsByField: Record<string, string[]> = {
   "Marketing / Communication": [
