@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     const supportingMaterials = Array.isArray(payload.supporting_materials)
       ? payload.supporting_materials
           .filter((item: unknown): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
-          .slice(0, 20)
+          .slice(0, 100)
           .map((item: Record<string, unknown>) => {
             const questionKey = typeof item.question_key === "string"
               ? item.question_key.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80)
