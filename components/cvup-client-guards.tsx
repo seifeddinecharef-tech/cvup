@@ -66,15 +66,12 @@ function ensureFullNameLatinRequirement(language: LanguageCode) {
   input.setAttribute("data-cvup-latin-name", "true");
   input.placeholder = language === "ar" ? "مثال: Seif Eddine Charef" : language === "fr" ? "Exemple : Seif Eddine Charef" : "Example: Seif Eddine Charef";
 
-  const validate = () => {
+  input.oninput = () => {
     const value = input.value.trim();
     window.sessionStorage.setItem("cvup_last_full_name", value);
     input.setCustomValidity(value && !latinNamePattern.test(value) ? messages[language].latinError : "");
   };
-
-  input.removeEventListener("input", validate);
-  input.addEventListener("input", validate);
-  validate();
+  input.oninput(new Event("input"));
 
   const label = input.closest("label");
   if (label && !label.querySelector("[data-cvup-latin-hint]")) {
