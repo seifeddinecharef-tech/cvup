@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS cv_requests (
   job_description_file_name TEXT,
   job_description_file_type TEXT,
   internal_status_updated_at TIMESTAMPTZ,
+  supporting_materials JSONB NOT NULL DEFAULT '[]'::jsonb,
   raw_payload JSONB
 );
 
