@@ -1,33 +1,39 @@
 "use client";
 
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 
 function SuccessContent() {
-  const searchParams = useSearchParams();
-  const requestCode = searchParams.get("request_code");
+  const [clientName, setClientName] = useState("");
+
+  useEffect(() => {
+    setClientName(window.sessionStorage.getItem("cvup_last_full_name")?.trim() || "");
+  }, []);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
       <div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-6 inline-flex rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-700">
-          Request received
+          تم استلام الطلب
         </div>
-        <h1 className="text-3xl font-bold text-slate-900">Your request has been received.</h1>
-
-        {requestCode ? (
-          <div className="mt-6 rounded-2xl bg-slate-100 p-4">
-            <p className="text-sm uppercase tracking-[0.22em] text-slate-500">Request code</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{requestCode}</p>
-          </div>
-        ) : null}
+        <h1 className="text-3xl font-bold text-slate-900">
+          {clientName ? `${clientName}، تم استلام طلبك بنجاح.` : "تم استلام طلبك بنجاح."}
+        </h1>
 
         <p className="mt-6 text-base leading-7 text-slate-600">
-          The CVUp team will review the information you provided and continue with the next steps as needed.
+          سيتواصل معك فريق CVUp عبر واتساب لتأكيد الطلب وتأكيد الدفع قبل بدء المعالجة.
         </p>
         <p className="mt-4 text-base leading-7 text-slate-600">
-          Next step: you will be contacted through WhatsApp or email to confirm the details and move forward.
+          بعد تأكيد الطلب والدفع، ستحصل على سيرتك الذاتية المهنية قبل مرور 24 ساعة.
         </p>
+
+        <a
+          href="https://wa.me/213794851081"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-7 inline-flex min-h-12 items-center justify-center rounded-full bg-slate-900 px-6 text-sm font-bold text-white no-underline"
+        >
+          التواصل عبر واتساب
+        </a>
       </div>
     </main>
   );
