@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const latinFullNamePattern = /^[A-Za-zÀ-ÖØ-öø-ÿ' .-]{2,160}$/;
+const arabicFullNamePattern = /^[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF' .-]{2,160}$/;
 
 function generateRequestCode(): string {
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Invalid payload." }, { status: 400 });
     }
 
-    if (!payload.full_name || !payload.phone || !payload.email || !payload.cv_type || !payload.form_language) {
+    if (!payload.full_name || !payload.full_name_arabic || !payload.phone || !payload.email || !payload.cv_type || !payload.form_language) {
       return NextResponse.json({ success: false, error: "Missing required fields." }, { status: 400 });
     }
 
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
     }
 
     const fullName = String(payload.full_name).trim();
+    const fullNameArabic = String(payload.full_name_arabic).trim();
     const phone = String(payload.phone).trim();
     const email = String(payload.email).trim().toLowerCase();
     const formLanguage = String(payload.form_language);
@@ -55,6 +57,14 @@ export async function POST(request: Request) {
 
     if (!latinFullNamePattern.test(fullName)) {
       return NextResponse.json({ success: false, error: "Full name must be written in Latin characters." }, { status: 400 });
+    }
+
+    if (fullNameArabic.length < 2 || fullNameArabic.length > 160) {
+      return NextResponse.json({ success: false, error: "Invalid Arabic full name." }, { status: 400 });
+    }
+
+    if (!arabicFullNamePattern.test(fullNameArabic)) {
+      return NextResponse.json({ success: false, error: "Arabic full name must be written in Arabic characters." }, { status: 400 });
     }
 
     if (phone.length < 6 || phone.length > 32) {
@@ -78,7 +88,7 @@ export async function POST(request: Request) {
     }
 
     const requestCode = generateRequestCode();
-    const rawPayload = { ...payload };
+    const rawPayload = { ...payload, full_name_arabic: fullNameArabic };
     delete rawPayload.website;
 
     const supportingMaterials = Array.isArray(payload.supporting_materials)
