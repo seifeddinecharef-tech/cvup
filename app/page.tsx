@@ -195,7 +195,7 @@ export default function HomePage() {
     { step: 3, title: stepTitle(wizardSteps[2]), values: [[ui("المسؤوليات", "Responsabilités", "Responsibilities"), form.professional_evidence], [ui("الإنجازات", "Réalisations", "Achievements"), form.measurable_achievements_text], [ui("خبرة إضافية", "Expérience complémentaire", "Additional experience"), form.additional_experience_text]] },
     { step: 4, title: stepTitle(wizardSteps[3]), values: [[ui("الأدوات", "Outils", "Tools"), form.tools], [ui("المنصات", "Plateformes", "Platforms"), form.platforms_worked_with]] },
     { step: 5, title: stepTitle(wizardSteps[4]), values: [[ui("اللغات", "Langues", "Languages"), form.spoken_languages.map((entry) => `${optionLabel(entry.language === "Other" ? entry.language_other || entry.language : entry.language)} (${optionLabel(entry.level === "Other" ? entry.level_other || entry.level : entry.level)})`)], [ui("الشهادات", "Certifications", "Certifications"), form.certifications_text], [ui("ملف الشهادة", "Fichier de certification", "Certification file"), fileName(form.certifications_file)]] },
-    { step: 6, title: stepTitle(wizardSteps[5]), values: [[ui("ملف CV", "Fichier CV", "CV file"), fileName(form.current_cv_file)], [ui("لغات CV", "Langues du CV", "CV languages"), form.selected_cv_languages], [ui("التصميم", "Design", "Design"), form.cv_design_preference], [ui("ملف القالب", "Fichier modèle", "Template file"), fileName(form.cv_template_file)], [ui("البلد", "Pays", "Country"), form.current_country ? countryLabel(form.current_country) : "—"], [ui("الجنسية", "Nationalité", "Nationality"), form.nationality ? countryLabel(form.nationality) : "—"]] },
+    { step: 6, title: stepTitle(wizardSteps[5]), values: [[ui("ملف CV", "Fichier CV", "CV file"), fileName(form.current_cv_file)], [ui("لغات CV", "Langues du CV", "CV languages"), form.selected_cv_languages.map((item) => item === "Other" ? form.selected_cv_languages_other || optionLabel(item) : optionLabel(item))], [ui("التصميم", "Design", "Design"), form.cv_design_preference], [ui("ملف القالب", "Fichier modèle", "Template file"), fileName(form.cv_template_file)], [ui("البلد", "Pays", "Country"), form.current_country ? countryLabel(form.current_country) : "—"], [ui("الجنسية", "Nationalité", "Nationality"), form.nationality ? countryLabel(form.nationality) : "—"]] },
   ];
 
   useEffect(() => {
@@ -389,7 +389,7 @@ export default function HomePage() {
           </div>
         ))}
 
-        {(files.length > 0) ? fileLimitHint() : null}
+        {fileLimitHint()}
 
         <div className="mt-2 flex flex-wrap gap-2">
           <button
@@ -900,17 +900,19 @@ export default function HomePage() {
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                   />
                 </label>
-                <label className="block md:col-span-2">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "uploadJobDescription")}</span>
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx,.txt"
-                    onChange={(e) => handleFieldChange("job_description_file", e.target.files?.[0] ?? null)}
-                    className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
-                  />
-                  {fileLimitHint()}
+                <div className="md:col-span-2">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "uploadJobDescription")}</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt"
+                      onChange={(e) => handleFieldChange("job_description_file", e.target.files?.[0] ?? null)}
+                      className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
+                    />
+                    {fileLimitHint()}
+                  </label>
                   {extraAttachmentFields("job_description")}
-                </label>
+                </div>
                 <div className="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                   {getText(language, "note")}
                 </div>
@@ -1335,7 +1337,7 @@ export default function HomePage() {
                   onClick={() => handleFieldChange("spoken_languages", [...form.spoken_languages, { language: "Arabic", level: "Intermediate", professional_writing: false, language_other: "", level_other: "" }])}
                   className="rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
                 >
-                  {getText(language, "addLanguage")}
+                  <span aria-hidden="true">+</span> {getText(language, "addLanguage")}
                 </button>
               </div>
             </div>
