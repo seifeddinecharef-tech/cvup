@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
 import {
   ADMIN_SESSION_COOKIE,
   ADMIN_SESSION_MAX_AGE,
@@ -27,12 +27,25 @@ export async function GET(request: NextRequest) {
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
   if (!supabaseUrl || !publishableKey) return loginError(request, "config", adminFlow);
 
-  const supabase = createClient(supabaseUrl, publishableKey, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  const response = NextResponse.redirect(new URL(safeNext, request.url));
+  const supabase = createServerClient(supabaseUrl, publishableKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options);
+        });
+      },
+    },
   });
 
   const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error || !data.session || !data.user?.email) return loginError(request, "oauth", adminFlow);
+  if (error || !data.user?.email) {
+    console.error("Supabase OAuth callback failed:", error?.message || "No authenticated user returned.");
+    return loginError(request, "oauth", adminFlow);
+  }
 
   if (adminFlow) {
     const allowedEmail = process.env.CVUP_ADMIN_EMAIL?.trim().toLowerCase();
@@ -41,7 +54,6 @@ export async function GET(request: NextRequest) {
       return loginError(request, "unauthorized_account", true);
     }
 
-    const response = NextResponse.redirect(new URL(safeNext.startsWith("/admin") ? safeNext : "/admin", request.url));
     const token = await createAdminSessionToken(signedInEmail);
     response.cookies.set(ADMIN_SESSION_COOKIE, token, {
       httpOnly: true,
@@ -50,12 +62,7 @@ export async function GET(request: NextRequest) {
       path: "/",
       maxAge: ADMIN_SESSION_MAX_AGE,
     });
-    return response;
   }
 
-  const handoff = new URL("/auth/complete", request.url);
-  handoff.searchParams.set("access_token", data.session.access_token);
-  handoff.searchParams.set("refresh_token", data.session.refresh_token);
-  handoff.searchParams.set("next", safeNext);
-  return NextResponse.redirect(handoff);
+  return response;
 }
