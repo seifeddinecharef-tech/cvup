@@ -239,6 +239,22 @@ export default function HomePage() {
     setStatus(null);
 
     try {
+      const allFiles = [
+        form.current_cv_file,
+        form.job_description_file,
+        form.certifications_file,
+        form.cv_template_file,
+        ...Object.values(supportingFiles),
+      ].filter((file): file is File => file instanceof File);
+
+      if (allFiles.some((file) => file.size > 10 * 1024 * 1024)) {
+        throw new Error(ui(
+          "حجم كل ملف يجب ألا يتجاوز 10 MB.",
+          "Chaque fichier doit faire au maximum 10 Mo.",
+          "Each file must be 10 MB or smaller."
+        ));
+      }
+
       const {
         current_cv_file,
         job_description_file,
