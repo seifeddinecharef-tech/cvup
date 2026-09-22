@@ -48,6 +48,7 @@ const initialForm = {
   full_name: "",
   phone: "",
   email: "",
+  website: "",
   cv_type: "General CV",
   target_job_title: "",
   company_name: "",
@@ -593,6 +594,18 @@ export default function HomePage() {
                   value={form.full_name}
                   onChange={(e) => handleFieldChange("full_name", e.target.value)}
                   className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-slate-500"
+                />
+              </label>
+            </div>
+
+            <div className="absolute left-[-10000px] top-auto h-px w-px overflow-hidden" aria-hidden="true">
+              <label>
+                Website
+                <input
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={form.website}
+                  onChange={(event) => handleFieldChange("website", event.target.value)}
                 />
               </label>
             </div>
