@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Cairo, Geist, Geist_Mono, Lateef, Tajawal } from "next/font/google";
 import "./globals.css";
+import "./hero-ux.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
