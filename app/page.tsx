@@ -218,35 +218,203 @@ export default function HomePage() {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
-  const supportingMaterialFields = (questionKey: SupportingQuestionKey) => (
-    <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3">
-      <p className="mb-3 text-sm text-slate-600">
-        {ui(
-          `يمكنك إضافة رابط أو تحميل ملف داعم، وكلاهما اختياري. الحد الأقصى للملف ${MAX_UPLOAD_SIZE_MB} MB.`,
-          `Vous pouvez ajouter un lien ou téléverser un fichier justificatif. Les deux sont facultatifs. Taille maximale : ${MAX_UPLOAD_SIZE_MB} Mo.`,
-          `You can add a link or upload a supporting file. Both are optional. Maximum file size: ${MAX_UPLOAD_SIZE_MB} MB.`
-        )}
-      </p>
-      <div className="grid gap-3 md:grid-cols-2">
-        <input
-          type="url"
-          value={supportingLinks[questionKey]}
-          onChange={(event) => setSupportingLinks((current) => ({ ...current, [questionKey]: event.target.value }))}
-          placeholder={ui("رابط اختياري", "Lien facultatif", "Optional link")}
-          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
-        />
-        <label className="block">
-          <span className="sr-only">{ui("تحميل ملف داعم", "Téléverser un fichier justificatif", "Upload supporting file")}</span>
-          <input
-            type="file"
-            accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp"
-            onChange={(event) => setSupportingFiles((current) => ({ ...current, [questionKey]: event.target.files?.[0] ?? null }))}
-            className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
-          />
-        </label>
-      </div>
-    </div>
+  const fileLimitHint = () => (
+    <p className="mt-1 text-xs text-slate-500">
+      {ui(
+        `الحد الأقصى لكل ملف: ${MAX_UPLOAD_SIZE_MB} MB`,
+        `Taille maximale par fichier : ${MAX_UPLOAD_SIZE_MB} Mo`,
+        `Maximum size per file: ${MAX_UPLOAD_SIZE_MB} MB`
+      )}
+    </p>
   );
+
+  const supportingMaterialFields = (questionKey: SupportingQuestionKey) => {
+    const links = supportingLinks[questionKey];
+    const files = supportingFiles[questionKey];
+
+    return (
+      <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3">
+        <p className="mb-3 text-sm text-slate-600">
+          {ui(
+            `يمكنك إضافة أكثر من رابط وأكثر من ملف داعم. كل العناصر اختيارية، والحد الأقصى لكل ملف ${MAX_UPLOAD_SIZE_MB} MB.`,
+            `Vous pouvez ajouter plusieurs liens et plusieurs fichiers justificatifs. Tout est facultatif et chaque fichier est limité à ${MAX_UPLOAD_SIZE_MB} Mo.`,
+            `You can add multiple links and multiple supporting files. Everything is optional, with a ${MAX_UPLOAD_SIZE_MB} MB limit per file.`
+          )}
+        </p>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            {links.map((value, index) => (
+              <div key={`link-${questionKey}-${index}`} className="flex gap-2">
+                <input
+                  type="url"
+                  value={value}
+                  onChange={(event) => setSupportingLinks((current) => ({
+                    ...current,
+                    [questionKey]: current[questionKey].map((item, itemIndex) => itemIndex === index ? event.target.value : item),
+                  }))}
+                  placeholder={ui("رابط اختياري", "Lien facultatif", "Optional link")}
+                  className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
+                />
+                {links.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setSupportingLinks((current) => ({
+                      ...current,
+                      [questionKey]: current[questionKey].filter((_, itemIndex) => itemIndex !== index),
+                    }))}
+                    className="rounded-xl border border-slate-300 px-3 text-slate-500"
+                    aria-label={ui("حذف الرابط", "Supprimer le lien", "Remove link")}
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setSupportingLinks((current) => ({
+                ...current,
+                [questionKey]: [...current[questionKey], ""],
+              }))}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+            >
+              <span aria-hidden="true">+</span>
+              {ui("إضافة رابط آخر", "Ajouter un autre lien", "Add another link")}
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {files.map((file, index) => (
+              <div key={`file-${questionKey}-${index}`} className="flex gap-2">
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp"
+                  onChange={(event) => setSupportingFiles((current) => ({
+                    ...current,
+                    [questionKey]: current[questionKey].map((item, itemIndex) => itemIndex === index ? event.target.files?.[0] ?? null : item),
+                  }))}
+                  className="min-w-0 flex-1 rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
+                />
+                {files.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setSupportingFiles((current) => ({
+                      ...current,
+                      [questionKey]: current[questionKey].filter((_, itemIndex) => itemIndex !== index),
+                    }))}
+                    className="rounded-xl border border-slate-300 px-3 text-slate-500"
+                    aria-label={ui("حذف الملف", "Supprimer le fichier", "Remove file")}
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
+            ))}
+            {fileLimitHint()}
+            <button
+              type="button"
+              onClick={() => setSupportingFiles((current) => ({
+                ...current,
+                [questionKey]: [...current[questionKey], null],
+              }))}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+            >
+              <span aria-hidden="true">+</span>
+              {ui("إضافة ملف آخر", "Ajouter un autre fichier", "Add another file")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const extraAttachmentFields = (attachmentKey: PrimaryAttachmentKey) => {
+    const links = extraLinks[attachmentKey];
+    const files = extraFiles[attachmentKey];
+
+    return (
+      <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3">
+        {links.map((value, index) => (
+          <div key={`extra-link-${attachmentKey}-${index}`} className="mb-2 flex gap-2">
+            <input
+              type="url"
+              value={value}
+              onChange={(event) => setExtraLinks((current) => ({
+                ...current,
+                [attachmentKey]: current[attachmentKey].map((item, itemIndex) => itemIndex === index ? event.target.value : item),
+              }))}
+              placeholder={ui("رابط إضافي", "Lien supplémentaire", "Additional link")}
+              className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
+            />
+            <button
+              type="button"
+              onClick={() => setExtraLinks((current) => ({
+                ...current,
+                [attachmentKey]: current[attachmentKey].filter((_, itemIndex) => itemIndex !== index),
+              }))}
+              className="rounded-xl border border-slate-300 px-3 text-slate-500"
+              aria-label={ui("حذف الرابط", "Supprimer le lien", "Remove link")}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+
+        {files.map((file, index) => (
+          <div key={`extra-file-${attachmentKey}-${index}`} className="mb-2 flex gap-2">
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp"
+              onChange={(event) => setExtraFiles((current) => ({
+                ...current,
+                [attachmentKey]: current[attachmentKey].map((item, itemIndex) => itemIndex === index ? event.target.files?.[0] ?? null : item),
+              }))}
+              className="min-w-0 flex-1 rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => setExtraFiles((current) => ({
+                ...current,
+                [attachmentKey]: current[attachmentKey].filter((_, itemIndex) => itemIndex !== index),
+              }))}
+              className="rounded-xl border border-slate-300 px-3 text-slate-500"
+              aria-label={ui("حذف الملف", "Supprimer le fichier", "Remove file")}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+
+        {(files.length > 0) ? fileLimitHint() : null}
+
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setExtraLinks((current) => ({
+              ...current,
+              [attachmentKey]: [...current[attachmentKey], ""],
+            }))}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+          >
+            <span aria-hidden="true">+</span>
+            {ui("إضافة رابط آخر", "Ajouter un autre lien", "Add another link")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setExtraFiles((current) => ({
+              ...current,
+              [attachmentKey]: [...current[attachmentKey], null],
+            }))}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700"
+          >
+            <span aria-hidden="true">+</span>
+            {ui("إضافة ملف آخر", "Ajouter un autre fichier", "Add another file")}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const handleLanguageSelect = (code: LanguageCode) => {
     setLanguage(code);
