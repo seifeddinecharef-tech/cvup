@@ -63,7 +63,7 @@ Authentication surfaces:
 
 After a request is created, the server issues a short-lived signed submission token. File uploads and supporting-material updates require that token and are bound to the new request.
 
-Uploads are restricted to supported document/image types and a maximum of 10 MB per file.
+Uploads are restricted to supported document/image types and a maximum of 50 MB per file on the current Supabase Free plan.
 
 ## Production checklist
 
@@ -79,3 +79,8 @@ Before deploying:
 - confirm work/payment status persists after refresh;
 - confirm the ZIP includes `request.md` and every uploaded file;
 - confirm logout blocks both Admin pages and Admin APIs.
+
+
+## Upload size note
+
+The connected Supabase organization is currently on the Free plan. Supabase caps the global file size limit at 50 MB on Free projects, so CVUp currently enforces 50 MB per uploaded file. Raising the product limit to 80–100 MB requires moving the Supabase project to Pro or higher and then updating the shared upload limit.
