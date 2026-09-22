@@ -187,15 +187,14 @@ export async function PATCH(request: Request) {
 
     const supabase = getSupabaseServerClient();
     const fields = primaryFileFields[kind as PrimaryKind];
-    const { data: objectRows } = await supabase
-      .schema("storage")
-      .from("objects")
-      .select("name")
-      .eq("bucket_id", "cvup-requests")
-      .eq("name", path)
-      .limit(1);
+    const lastSlash = path.lastIndexOf("/");
+    const folder = path.slice(0, lastSlash);
+    const objectName = path.slice(lastSlash + 1);
+    const { data: objectRows, error: listError } = await supabase.storage
+      .from("cvup-requests")
+      .list(folder, { search: objectName, limit: 10 });
 
-    if (!objectRows?.length) {
+    if (listError || !objectRows?.some((item) => item.name === objectName)) {
       return NextResponse.json({ error: "Uploaded file could not be verified." }, { status: 409 });
     }
 
