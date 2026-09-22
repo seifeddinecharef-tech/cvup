@@ -51,6 +51,7 @@ export type CvRequestRow = {
   job_description_file_name?: string | null;
   job_description_file_type?: string | null;
   internal_status_updated_at?: string | null;
+  supporting_materials?: unknown;
   raw_payload?: unknown;
   [key: string]: unknown;
 };

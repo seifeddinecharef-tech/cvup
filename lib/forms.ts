@@ -193,3 +193,90 @@ export const designPreferences = [
   "Choose the most suitable design for me",
   "Other",
 ] as const;
+
+
+export type FormOptionLanguage = "ar" | "fr" | "en";
+
+const optionLabels: Record<string, Record<FormOptionLanguage, string>> = {
+  "Marketing / Communication": { ar: "التسويق / الاتصال", fr: "Marketing / Communication", en: "Marketing / Communication" },
+  "Finance / Accounting": { ar: "المالية / المحاسبة", fr: "Finance / Comptabilité", en: "Finance / Accounting" },
+  "Human Resources": { ar: "الموارد البشرية", fr: "Ressources humaines", en: "Human Resources" },
+  "IT / Development": { ar: "تكنولوجيا المعلومات / التطوير", fr: "Informatique / Développement", en: "IT / Development" },
+  "Data / Analytics": { ar: "البيانات / التحليلات", fr: "Données / Analyse", en: "Data / Analytics" },
+  "Sales / Business Development": { ar: "المبيعات / تطوير الأعمال", fr: "Vente / Développement commercial", en: "Sales / Business Development" },
+  "Logistics / Supply Chain": { ar: "اللوجستيك / سلسلة الإمداد", fr: "Logistique / Chaîne d’approvisionnement", en: "Logistics / Supply Chain" },
+  "Engineering": { ar: "الهندسة", fr: "Ingénierie", en: "Engineering" },
+  "Design / Creative": { ar: "التصميم / الإبداع", fr: "Design / Création", en: "Design / Creative" },
+  "Administration": { ar: "الإدارة", fr: "Administration", en: "Administration" },
+  "Education / Training": { ar: "التعليم / التدريب", fr: "Éducation / Formation", en: "Education / Training" },
+  "Customer Service": { ar: "خدمة العملاء", fr: "Service client", en: "Customer Service" },
+  "Other": { ar: "أخرى", fr: "Autre", en: "Other" },
+  "Yes": { ar: "نعم", fr: "Oui", en: "Yes" },
+  "No": { ar: "لا", fr: "Non", en: "No" },
+  "General CV": { ar: "سيرة ذاتية عامة", fr: "CV général", en: "General CV" },
+  "CV targeted to a specific job": { ar: "سيرة ذاتية موجهة لوظيفة معينة", fr: "CV ciblé sur un poste", en: "CV targeted to a specific job" },
+
+  "Social Media Management": { ar: "إدارة وسائل التواصل الاجتماعي", fr: "Gestion des réseaux sociaux", en: "Social Media Management" },
+  "Content Creation": { ar: "إنشاء المحتوى", fr: "Création de contenu", en: "Content Creation" },
+  "Content Strategy": { ar: "استراتيجية المحتوى", fr: "Stratégie de contenu", en: "Content Strategy" },
+  "Digital Marketing Strategy": { ar: "استراتيجية التسويق الرقمي", fr: "Stratégie de marketing digital", en: "Digital Marketing Strategy" },
+  "Community Management": { ar: "إدارة المجتمع", fr: "Community management", en: "Community Management" },
+  "Paid Advertising": { ar: "الإعلانات المدفوعة", fr: "Publicité payante", en: "Paid Advertising" },
+  "Meta Ads": { ar: "إعلانات Meta", fr: "Publicités Meta", en: "Meta Ads" },
+  "Google Ads": { ar: "إعلانات Google", fr: "Google Ads", en: "Google Ads" },
+  "Lead Generation": { ar: "توليد العملاء المحتملين", fr: "Génération de prospects", en: "Lead Generation" },
+  "Campaign Optimization": { ar: "تحسين الحملات", fr: "Optimisation des campagnes", en: "Campaign Optimization" },
+  "Performance Reporting": { ar: "تقارير الأداء", fr: "Reporting de performance", en: "Performance Reporting" },
+  "Analytics": { ar: "التحليلات", fr: "Analyse des données", en: "Analytics" },
+  "Market Research": { ar: "دراسة السوق", fr: "Étude de marché", en: "Market Research" },
+  "SEO": { ar: "تحسين محركات البحث (SEO)", fr: "Référencement naturel (SEO)", en: "SEO" },
+  "Email Marketing": { ar: "التسويق عبر البريد الإلكتروني", fr: "E-mail marketing", en: "Email Marketing" },
+  "CRM": { ar: "إدارة علاقات العملاء (CRM)", fr: "CRM", en: "CRM" },
+  "Influencer Marketing": { ar: "التسويق عبر المؤثرين", fr: "Marketing d’influence", en: "Influencer Marketing" },
+  "Event Marketing": { ar: "تسويق الفعاليات", fr: "Marketing événementiel", en: "Event Marketing" },
+  "E-commerce": { ar: "التجارة الإلكترونية", fr: "E-commerce", en: "E-commerce" },
+  "Brand Management": { ar: "إدارة العلامة التجارية", fr: "Gestion de marque", en: "Brand Management" },
+  "Copywriting": { ar: "كتابة المحتوى الإعلاني", fr: "Copywriting", en: "Copywriting" },
+  "Video Content": { ar: "محتوى الفيديو", fr: "Contenu vidéo", en: "Video Content" },
+  "Graphic Design": { ar: "التصميم الجرافيكي", fr: "Design graphique", en: "Graphic Design" },
+
+  "Website / CMS": { ar: "الموقع / نظام إدارة المحتوى", fr: "Site web / CMS", en: "Website / CMS" },
+
+  "Internal teams": { ar: "الفرق الداخلية", fr: "Équipes internes", en: "Internal teams" },
+  "Creative teams": { ar: "الفرق الإبداعية", fr: "Équipes créatives", en: "Creative teams" },
+  "Sales teams": { ar: "فرق المبيعات", fr: "Équipes commerciales", en: "Sales teams" },
+  "Technical teams": { ar: "الفرق التقنية", fr: "Équipes techniques", en: "Technical teams" },
+  "Agencies": { ar: "الوكالات", fr: "Agences", en: "Agencies" },
+  "Freelancers": { ar: "المستقلون", fr: "Freelances", en: "Freelancers" },
+  "Influencers / Content Creators": { ar: "المؤثرون / منشئو المحتوى", fr: "Influenceurs / Créateurs de contenu", en: "Influencers / Content Creators" },
+  "Vendors / Suppliers": { ar: "الموردون", fr: "Vendeurs / Fournisseurs", en: "Vendors / Suppliers" },
+  "Production teams": { ar: "فرق الإنتاج", fr: "Équipes de production", en: "Production teams" },
+  "Clients": { ar: "العملاء", fr: "Clients", en: "Clients" },
+
+  "Arabic": { ar: "العربية", fr: "Arabe", en: "Arabic" },
+  "French": { ar: "الفرنسية", fr: "Français", en: "French" },
+  "English": { ar: "الإنجليزية", fr: "Anglais", en: "English" },
+  "Spanish": { ar: "الإسبانية", fr: "Espagnol", en: "Spanish" },
+  "German": { ar: "الألمانية", fr: "Allemand", en: "German" },
+  "Italian": { ar: "الإيطالية", fr: "Italien", en: "Italian" },
+
+  "Native": { ar: "اللغة الأم", fr: "Langue maternelle", en: "Native" },
+  "Fluent": { ar: "بطلاقة", fr: "Courant", en: "Fluent" },
+  "Professional": { ar: "مهني", fr: "Professionnel", en: "Professional" },
+  "Intermediate": { ar: "متوسط", fr: "Intermédiaire", en: "Intermediate" },
+  "Basic": { ar: "أساسي", fr: "Notions de base", en: "Basic" },
+
+  "ATS-friendly simple professional design": { ar: "تصميم احترافي بسيط ومتوافق مع ATS", fr: "Design professionnel simple et compatible ATS", en: "ATS-friendly simple professional design" },
+  "I have a specific template": { ar: "لدي قالب محدد", fr: "J’ai un modèle spécifique", en: "I have a specific template" },
+  "Choose the most suitable design for me": { ar: "اختر التصميم الأنسب لي", fr: "Choisissez le design le plus adapté pour moi", en: "Choose the most suitable design for me" },
+
+  "Citizen / National": { ar: "مواطن / حامل للجنسية", fr: "Citoyen / National", en: "Citizen / National" },
+  "Permanent resident": { ar: "مقيم دائم", fr: "Résident permanent", en: "Permanent resident" },
+  "Valid work permit": { ar: "لدي تصريح عمل ساري", fr: "Permis de travail valide", en: "Valid work permit" },
+  "Need employer sponsorship": { ar: "أحتاج إلى كفالة / رعاية من صاحب العمل", fr: "Besoin d’un parrainage de l’employeur", en: "Need employer sponsorship" },
+  "Not sure": { ar: "غير متأكد", fr: "Je ne sais pas", en: "Not sure" },
+};
+
+export function getFormOptionLabel(value: string, language: FormOptionLanguage) {
+  return optionLabels[value]?.[language] ?? value;
+}
