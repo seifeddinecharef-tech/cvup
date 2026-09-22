@@ -51,6 +51,17 @@ function digits(value?: string | null) {
   return normalized;
 }
 
+function countryDisplay(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return "—";
+  const normalized = value.trim();
+  if (!/^[A-Za-z]{2}$/.test(normalized)) return normalized;
+  try {
+    return new Intl.DisplayNames(["en"], { type: "region" }).of(normalized.toUpperCase()) || normalized;
+  } catch {
+    return normalized;
+  }
+}
+
 export default async function AdminRequestDetailPage({
   params,
 }: {
@@ -86,8 +97,8 @@ export default async function AdminRequestDetailPage({
     ["Full name", request.full_name],
     ["Phone / WhatsApp", request.phone],
     ["Email", request.email],
-    ["Current country", typeof rawPayload.current_country === "string" && rawPayload.current_country ? new Intl.DisplayNames(["en"], { type: "region" }).of(rawPayload.current_country) || rawPayload.current_country : "—"],
-    ["Nationality", typeof rawPayload.nationality === "string" && rawPayload.nationality ? new Intl.DisplayNames(["en"], { type: "region" }).of(rawPayload.nationality) || rawPayload.nationality : "—"],
+    ["Current country", countryDisplay(rawPayload.current_country)],
+    ["Nationality", countryDisplay(rawPayload.nationality)],
     ["Willing to relocate", rawPayload.willing_to_relocate],
     ["Target countries", rawPayload.target_countries],
     ["Work authorization", rawPayload.work_authorization],
