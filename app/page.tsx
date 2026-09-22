@@ -16,6 +16,8 @@ import {
 } from "@/lib/forms";
 import { getText, languages, type LanguageCode } from "@/lib/i18n";
 import { getSupabaseBrowserClient } from "@/lib/supabase-client";
+import { getCountryLabel, getCountryOptions } from "@/lib/countries";
+import { MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB } from "@/lib/upload-limits";
 
 const supportingQuestionKeys = [
   "achievements",
@@ -140,6 +142,8 @@ export default function HomePage() {
   const stepTitle = (step: (typeof wizardSteps)[number]) => step[language];
   const optionLabel = (value: string) => getFormOptionLabel(value, language);
   const ui = (ar: string, fr: string, en: string) => language === "ar" ? ar : language === "fr" ? fr : en;
+  const countryOptions = useMemo(() => getCountryOptions(language), [language]);
+  const countryLabel = (value: string) => getCountryLabel(value, language);
 
   useEffect(() => {
     document.getElementById("wizard-step-title")?.focus();
@@ -175,7 +179,7 @@ export default function HomePage() {
     { step: 3, title: stepTitle(wizardSteps[2]), values: [[ui("المسؤوليات", "Responsabilités", "Responsibilities"), form.professional_evidence], [ui("الإنجازات", "Réalisations", "Achievements"), form.measurable_achievements_text], [ui("خبرة إضافية", "Expérience complémentaire", "Additional experience"), form.additional_experience_text]] },
     { step: 4, title: stepTitle(wizardSteps[3]), values: [[ui("الأدوات", "Outils", "Tools"), form.tools], [ui("المنصات", "Plateformes", "Platforms"), form.platforms_worked_with]] },
     { step: 5, title: stepTitle(wizardSteps[4]), values: [[ui("اللغات", "Langues", "Languages"), form.spoken_languages.map((entry) => `${optionLabel(entry.language === "Other" ? entry.language_other || entry.language : entry.language)} (${optionLabel(entry.level === "Other" ? entry.level_other || entry.level : entry.level)})`)], [ui("الشهادات", "Certifications", "Certifications"), form.certifications_text], [ui("ملف الشهادة", "Fichier de certification", "Certification file"), fileName(form.certifications_file)]] },
-    { step: 6, title: stepTitle(wizardSteps[5]), values: [[ui("ملف CV", "Fichier CV", "CV file"), fileName(form.current_cv_file)], [ui("لغات CV", "Langues du CV", "CV languages"), form.selected_cv_languages], [ui("التصميم", "Design", "Design"), form.cv_design_preference], [ui("ملف القالب", "Fichier modèle", "Template file"), fileName(form.cv_template_file)], [ui("البلد", "Pays", "Country"), form.current_country]] },
+    { step: 6, title: stepTitle(wizardSteps[5]), values: [[ui("ملف CV", "Fichier CV", "CV file"), fileName(form.current_cv_file)], [ui("لغات CV", "Langues du CV", "CV languages"), form.selected_cv_languages], [ui("التصميم", "Design", "Design"), form.cv_design_preference], [ui("ملف القالب", "Fichier modèle", "Template file"), fileName(form.cv_template_file)], [ui("البلد", "Pays", "Country"), form.current_country ? countryLabel(form.current_country) : "—"], [ui("الجنسية", "Nationalité", "Nationality"), form.nationality ? countryLabel(form.nationality) : "—"]] },
   ];
 
   useEffect(() => {
@@ -205,9 +209,9 @@ export default function HomePage() {
     <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3">
       <p className="mb-3 text-sm text-slate-600">
         {ui(
-          "يمكنك إضافة رابط أو تحميل ملف داعم، وكلاهما اختياري. الحد الأقصى للملف 10 MB.",
-          "Vous pouvez ajouter un lien ou téléverser un fichier justificatif. Les deux sont facultatifs. Taille maximale : 10 Mo.",
-          "You can add a link or upload a supporting file. Both are optional. Maximum file size: 10 MB."
+          `يمكنك إضافة رابط أو تحميل ملف داعم، وكلاهما اختياري. الحد الأقصى للملف ${MAX_UPLOAD_SIZE_MB} MB.`,
+          `Vous pouvez ajouter un lien ou téléverser un fichier justificatif. Les deux sont facultatifs. Taille maximale : ${MAX_UPLOAD_SIZE_MB} Mo.`,
+          `You can add a link or upload a supporting file. Both are optional. Maximum file size: ${MAX_UPLOAD_SIZE_MB} MB.`
         )}
       </p>
       <div className="grid gap-3 md:grid-cols-2">
@@ -250,11 +254,11 @@ export default function HomePage() {
         ...Object.values(supportingFiles),
       ].filter((file): file is File => file instanceof File);
 
-      if (allFiles.some((file) => file.size > 10 * 1024 * 1024)) {
+      if (allFiles.some((file) => file.size > MAX_UPLOAD_SIZE_BYTES)) {
         throw new Error(ui(
-          "حجم كل ملف يجب ألا يتجاوز 10 MB.",
-          "Chaque fichier doit faire au maximum 10 Mo.",
-          "Each file must be 10 MB or smaller."
+          `حجم كل ملف يجب ألا يتجاوز ${MAX_UPLOAD_SIZE_MB} MB.`,
+          `Chaque fichier doit faire au maximum ${MAX_UPLOAD_SIZE_MB} Mo.`,
+          `Each file must be ${MAX_UPLOAD_SIZE_MB} MB or smaller.`
         ));
       }
 
@@ -994,12 +998,22 @@ export default function HomePage() {
               <p className="mt-2 text-sm text-slate-600">{getText(language, "eligibilityNote")}</p>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "currentCountry")}</span>
-                  <input value={form.current_country} onChange={(e) => handleFieldChange("current_country", e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500" />
+                  <span className="mb-2 block text-sm font-medium text-slate-700">
+                    {getText(language, "currentCountry")} <span className="font-normal text-slate-500">({ui("اختياري", "facultatif", "optional")})</span>
+                  </span>
+                  <select value={form.current_country} onChange={(e) => handleFieldChange("current_country", e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500">
+                    <option value="">{ui("اختر البلد", "Choisir un pays", "Choose a country")}</option>
+                    {countryOptions.map((country) => <option key={country.code} value={country.code}>{country.label}</option>)}
+                  </select>
                 </label>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "nationality")}</span>
-                  <input value={form.nationality} onChange={(e) => handleFieldChange("nationality", e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500" />
+                  <span className="mb-2 block text-sm font-medium text-slate-700">
+                    {getText(language, "nationality")} <span className="font-normal text-slate-500">({ui("اختياري", "facultatif", "optional")})</span>
+                  </span>
+                  <select value={form.nationality} onChange={(e) => handleFieldChange("nationality", e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500">
+                    <option value="">{ui("اختر الجنسية", "Choisir une nationalité", "Choose a nationality")}</option>
+                    {countryOptions.map((country) => <option key={country.code} value={country.code}>{country.label}</option>)}
+                  </select>
                 </label>
                 <label className="block">
                   <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "willingToRelocate")}</span>
