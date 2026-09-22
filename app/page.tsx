@@ -64,6 +64,7 @@ const initialExtraFiles: Record<PrimaryAttachmentKey, (File | null)[]> = {
 const initialForm = {
   form_language: "fr",
   full_name: "",
+  full_name_arabic: "",
   phone: "",
   email: "",
   website: "",
@@ -171,6 +172,26 @@ export default function HomePage() {
   useEffect(() => {
     document.getElementById("wizard-step-title")?.focus();
   }, [currentStep]);
+
+  useEffect(() => {
+    (async () => {
+      const supabase = getSupabaseBrowserClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      setForm((current) => ({
+        ...current,
+        email: current.email || user.email || "",
+        full_name: current.full_name || profile?.full_name_latin || "",
+        full_name_arabic: current.full_name_arabic || profile?.full_name_arabic || "",
+        phone: current.phone || profile?.phone || "",
+        current_country: current.current_country || profile?.current_country || "",
+        nationality: current.nationality || profile?.nationality || "",
+        professional_field: profile?.professional_field || current.professional_field,
+        target_role: current.target_role || profile?.target_role || "",
+      }));
+    })();
+  }, []);
 
   function validationMessageFor(field: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) {
     if (field.validity.valueMissing) {
@@ -291,7 +312,7 @@ export default function HomePage() {
   };
   const fileName = (file: File | null) => file?.name || "—";
   const reviewGroups = [
-    { step: 1, title: stepTitle(wizardSteps[0]), values: [[ui("الاسم", "Nom", "Name"), form.full_name], [ui("الهاتف", "Téléphone", "Phone"), form.phone], [ui("البريد", "E-mail", "Email"), form.email]] },
+    { step: 1, title: stepTitle(wizardSteps[0]), values: [[ui("الاسم باللاتينية", "Nom en caractères latins", "Name in Latin characters"), form.full_name], [ui("الاسم بالعربية", "Nom en arabe", "Name in Arabic"), form.full_name_arabic], [ui("الهاتف", "Téléphone", "Phone"), form.phone], [ui("البريد", "E-mail", "Email"), form.email]] },
     { step: 2, title: stepTitle(wizardSteps[1]), values: [[ui("نوع السيرة", "Type de CV", "CV type"), form.cv_type], [ui("الدور", "Rôle", "Role"), form.target_role], [ui("المجال", "Domaine", "Field"), form.professional_field], [ui("الوظيفة", "Poste visé", "Job title"), form.target_job_title], [ui("الشركة", "Entreprise", "Company"), form.company_name], [ui("ملف وصف الوظيفة", "Fichier de l’offre", "Job description file"), fileName(form.job_description_file)]] },
     { step: 3, title: stepTitle(wizardSteps[2]), values: [[ui("المسؤوليات", "Responsabilités", "Responsibilities"), form.professional_evidence], [ui("الإنجازات", "Réalisations", "Achievements"), form.measurable_achievements_text], [ui("خبرة إضافية", "Expérience complémentaire", "Additional experience"), form.additional_experience_text]] },
     { step: 4, title: stepTitle(wizardSteps[3]), values: [[ui("الأدوات", "Outils", "Tools"), form.tools], [ui("المنصات", "Plateformes", "Platforms"), form.platforms_worked_with]] },
@@ -936,13 +957,27 @@ export default function HomePage() {
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "fullName")}</span>
+                <span className="mb-2 block text-sm font-medium text-slate-700">{ui("الاسم واللقب بالأحرف اللاتينية", "Nom complet en caractères latins", "Full name in Latin characters")}</span>
                 <input
                   required
-                  pattern="[A-Za-zÀ-ÖØ-öø-ÿ' -]+"
+                  autoComplete="name"
+                  pattern="[A-Za-zÀ-ÖØ-öø-ÿ' .-]+"
                   data-validation-kind="latin-name"
                   value={form.full_name}
                   onChange={(e) => handleFieldChange("full_name", e.target.value)}
+                  placeholder="Seif Eddine Charef"
+                  className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-slate-500"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-700">{ui("الاسم واللقب بالعربية", "Nom complet en arabe", "Full name in Arabic")}</span>
+                <input
+                  required
+                  dir="rtl"
+                  pattern="[\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF' .-]+"
+                  value={form.full_name_arabic}
+                  onChange={(e) => handleFieldChange("full_name_arabic", e.target.value)}
+                  placeholder="سيف الدين شارف"
                   className="w-full rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-slate-500"
                 />
               </label>
