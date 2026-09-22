@@ -182,9 +182,9 @@ export default async function AdminRequestDetailPage({
               </a>
             ) : null}
             {request.request_code ? (
-              <Link href={`/api/admin/requests/${encodeURIComponent(request.request_code)}/export`} className="admin-button admin-button--primary">
+              <a href={`/api/admin/requests/${encodeURIComponent(request.request_code)}/export`} className="admin-button admin-button--primary">
                 Download dossier ZIP
-              </Link>
+              </a>
             ) : null}
             <AdminLogoutButton />
           </div>
