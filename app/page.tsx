@@ -137,6 +137,7 @@ export default function HomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showFloatingCta, setShowFloatingCta] = useState(true);
   const [currentStep, setCurrentStep] = useState(1);
+  const [reviewEditStep, setReviewEditStep] = useState<number | null>(null);
   const [supportingLinks, setSupportingLinks] = useState(initialSupportingLinks);
   const [supportingFiles, setSupportingFiles] = useState(initialSupportingFiles);
   const [extraLinks, setExtraLinks] = useState(initialExtraLinks);
@@ -178,7 +179,20 @@ export default function HomePage() {
 
   function moveStep(direction: 1 | -1) {
     if (direction === 1 && !validateCurrentStep()) return;
-    setCurrentStep((step) => Math.min(7, Math.max(1, step + direction)));
+
+    if (direction === 1 && reviewEditStep === currentStep) {
+      setReviewEditStep(null);
+      setCurrentStep(7);
+    } else {
+      setCurrentStep((step) => Math.min(7, Math.max(1, step + direction)));
+    }
+
+    document.getElementById("form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function editReviewStep(step: number) {
+    setReviewEditStep(step);
+    setCurrentStep(step);
     document.getElementById("form")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -1489,7 +1503,7 @@ export default function HomePage() {
             </div>
 
             <div data-wizard-step="7" className="review-grid">
-              {reviewGroups.map((group) => <section key={group.step} className="review-card"><div className="review-card__heading"><h4>{group.title}</h4><button type="button" onClick={() => setCurrentStep(group.step)}>{language === "ar" ? "تعديل" : language === "fr" ? "Modifier" : "Edit"}</button></div>{group.values.map(([label, value]) => <div key={String(label)} className="review-row"><span>{label}</span><strong>{reviewValue(value)}</strong></div>)}</section>)}
+              {reviewGroups.map((group) => <section key={group.step} className="review-card"><div className="review-card__heading"><h4>{group.title}</h4><button type="button" onClick={() => editReviewStep(group.step)}>{language === "ar" ? "تعديل" : language === "fr" ? "Modifier" : "Edit"}</button></div>{group.values.map(([label, value]) => <div key={String(label)} className="review-row"><span>{label}</span><strong>{reviewValue(value)}</strong></div>)}</section>)}
               <div className="review-price"><span>{language === "ar" ? "السعر النهائي" : language === "fr" ? "Prix final" : "Final price"}</span><strong>{language === "ar" ? "800 دج" : "800 DA"}</strong></div>
             </div>
 
@@ -1514,7 +1528,7 @@ export default function HomePage() {
               {isSubmitting ? (language === "ar" ? "جارٍ الإرسال..." : language === "fr" ? "Envoi en cours..." : "Submitting...") : getText(language, "submit")}
             </button>
           </form>
-              <div className="wizard-controls"><button type="button" className="wizard-control wizard-control--back" onClick={() => moveStep(-1)} disabled={currentStep === 1}>{language === "ar" ? "السابق" : language === "fr" ? "Précédent" : "Back"}</button>{currentStep < 7 ? <button type="button" className="wizard-control wizard-control--next" onClick={() => moveStep(1)}>{language === "ar" ? "التالي" : language === "fr" ? "Continuer" : "Continue"}</button> : null}</div>
+              <div className="wizard-controls"><button type="button" className="wizard-control wizard-control--back" onClick={() => moveStep(-1)} disabled={currentStep === 1}>{language === "ar" ? "السابق" : language === "fr" ? "Précédent" : "Back"}</button>{currentStep < 7 ? <button type="button" className="wizard-control wizard-control--next" onClick={() => moveStep(1)}>{reviewEditStep === currentStep ? (language === "ar" ? "حفظ والعودة للمراجعة" : language === "fr" ? "Enregistrer et revenir à la vérification" : "Save and return to review") : (language === "ar" ? "التالي" : language === "fr" ? "Continuer" : "Continue")}</button> : null}</div>
             </div>
           </div>
         </div>
