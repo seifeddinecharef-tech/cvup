@@ -822,7 +822,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="landing-section landing-section--options mx-auto max-w-7xl px-4 py-8 md:px-8">\n        <h2 className="mb-6 text-2xl font-bold text-slate-900">{getText(language, "sectionOptions")}</h2>
+      <section className="landing-section landing-section--options mx-auto max-w-7xl px-4 py-8 md:px-8">
+        <h2 className="mb-6 text-2xl font-bold text-slate-900">{getText(language, "sectionOptions")}</h2>
         <div className="grid gap-5 md:grid-cols-2">
           <div className="landing-card rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-lg font-bold text-slate-900">{getText(language, "generalTitle")}</p>
@@ -835,7 +836,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="landing-section landing-section--included mx-auto max-w-7xl px-4 py-8 md:px-8">\n        <h2 className="mb-6 text-2xl font-bold text-slate-900">{getText(language, "includedTitle")}</h2>
+      <section className="landing-section landing-section--included mx-auto max-w-7xl px-4 py-8 md:px-8">
+        <h2 className="mb-6 text-2xl font-bold text-slate-900">{getText(language, "includedTitle")}</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
             {
