@@ -5,6 +5,8 @@ import { assertRequestSubmissionTokenConfigured, createRequestSubmissionToken } 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const latinFullNamePattern = /^[A-Za-zÀ-ÖØ-öø-ÿ' .-]{2,160}$/;
+
 function generateRequestCode(): string {
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -49,6 +51,10 @@ export async function POST(request: Request) {
 
     if (fullName.length < 2 || fullName.length > 160) {
       return NextResponse.json({ success: false, error: "Invalid full name." }, { status: 400 });
+    }
+
+    if (!latinFullNamePattern.test(fullName)) {
+      return NextResponse.json({ success: false, error: "Full name must be written in Latin characters." }, { status: 400 });
     }
 
     if (phone.length < 6 || phone.length > 32) {
