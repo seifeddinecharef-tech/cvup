@@ -2,10 +2,8 @@
 
 import Image from "next/image";
 import { FormEvent, useState } from "react";
-import { useSearchParams } from "next/navigation";
 
 export default function AdminLoginPage() {
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -25,7 +23,7 @@ export default function AdminLoginPage() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Login failed.");
 
-      const next = searchParams.get("next");
+      const next = new URLSearchParams(window.location.search).get("next");
       window.location.href = next && next.startsWith("/admin") ? next : "/admin";
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Login failed.");
