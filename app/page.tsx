@@ -105,6 +105,7 @@ export default function HomePage() {
   ] as const;
   const stepTitle = (step: (typeof wizardSteps)[number]) => step[language];
   const optionLabel = (value: string) => getFormOptionLabel(value, language);
+  const ui = (ar: string, fr: string, en: string) => language === "ar" ? ar : language === "fr" ? fr : en;
 
   useEffect(() => {
     document.getElementById("wizard-step-title")?.focus();
@@ -135,12 +136,12 @@ export default function HomePage() {
   };
   const fileName = (file: File | null) => file?.name || "—";
   const reviewGroups = [
-    { step: 1, title: stepTitle(wizardSteps[0]), values: [[language === "ar" ? "الاسم" : "Name", form.full_name], [language === "ar" ? "الهاتف" : "Phone", form.phone], [language === "ar" ? "البريد" : "Email", form.email]] },
-    { step: 2, title: stepTitle(wizardSteps[1]), values: [["CV", form.cv_type], [language === "ar" ? "الدور" : "Role", form.target_role], [language === "ar" ? "المجال" : "Field", form.professional_field], [language === "ar" ? "الوظيفة" : "Job title", form.target_job_title], [language === "ar" ? "الشركة" : "Company", form.company_name]] },
-    { step: 3, title: stepTitle(wizardSteps[2]), values: [[language === "ar" ? "المسؤوليات" : "Evidence", form.professional_evidence], [language === "ar" ? "الإنجازات" : "Achievements", form.measurable_achievements_text], [language === "ar" ? "خبرة إضافية" : "Additional experience", form.additional_experience_text]] },
-    { step: 4, title: stepTitle(wizardSteps[3]), values: [[language === "ar" ? "الأدوات" : "Tools", form.tools], [language === "ar" ? "المنصات" : "Platforms", form.platforms_worked_with]] },
-    { step: 5, title: stepTitle(wizardSteps[4]), values: [[language === "ar" ? "اللغات" : "Languages", form.spoken_languages.map((entry) => `${optionLabel(entry.language === "Other" ? entry.language_other || entry.language : entry.language)} (${optionLabel(entry.level === "Other" ? entry.level_other || entry.level : entry.level)})`)], [language === "ar" ? "الشهادات" : "Certifications", form.certifications_text], [language === "ar" ? "ملف الشهادة" : "Certification file", fileName(form.certifications_file)]] },
-    { step: 6, title: stepTitle(wizardSteps[5]), values: [[language === "ar" ? "ملف CV" : "CV file", fileName(form.current_cv_file)], [language === "ar" ? "لغات CV" : "CV languages", form.selected_cv_languages], [language === "ar" ? "التصميم" : "Design", form.cv_design_preference], [language === "ar" ? "البلد" : "Country", form.current_country]] },
+    { step: 1, title: stepTitle(wizardSteps[0]), values: [[ui("الاسم", "Nom", "Name"), form.full_name], [ui("الهاتف", "Téléphone", "Phone"), form.phone], [ui("البريد", "E-mail", "Email"), form.email]] },
+    { step: 2, title: stepTitle(wizardSteps[1]), values: [[ui("نوع السيرة", "Type de CV", "CV type"), form.cv_type], [ui("الدور", "Rôle", "Role"), form.target_role], [ui("المجال", "Domaine", "Field"), form.professional_field], [ui("الوظيفة", "Poste visé", "Job title"), form.target_job_title], [ui("الشركة", "Entreprise", "Company"), form.company_name]] },
+    { step: 3, title: stepTitle(wizardSteps[2]), values: [[ui("المسؤوليات", "Responsabilités", "Responsibilities"), form.professional_evidence], [ui("الإنجازات", "Réalisations", "Achievements"), form.measurable_achievements_text], [ui("خبرة إضافية", "Expérience complémentaire", "Additional experience"), form.additional_experience_text]] },
+    { step: 4, title: stepTitle(wizardSteps[3]), values: [[ui("الأدوات", "Outils", "Tools"), form.tools], [ui("المنصات", "Plateformes", "Platforms"), form.platforms_worked_with]] },
+    { step: 5, title: stepTitle(wizardSteps[4]), values: [[ui("اللغات", "Langues", "Languages"), form.spoken_languages.map((entry) => `${optionLabel(entry.language === "Other" ? entry.language_other || entry.language : entry.language)} (${optionLabel(entry.level === "Other" ? entry.level_other || entry.level : entry.level)})`)], [ui("الشهادات", "Certifications", "Certifications"), form.certifications_text], [ui("ملف الشهادة", "Fichier de certification", "Certification file"), fileName(form.certifications_file)]] },
+    { step: 6, title: stepTitle(wizardSteps[5]), values: [[ui("ملف CV", "Fichier CV", "CV file"), fileName(form.current_cv_file)], [ui("لغات CV", "Langues du CV", "CV languages"), form.selected_cv_languages], [ui("التصميم", "Design", "Design"), form.cv_design_preference], [ui("البلد", "Pays", "Country"), form.current_country]] },
   ];
 
   useEffect(() => {
