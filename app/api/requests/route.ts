@@ -71,6 +71,28 @@ export async function POST(request: Request) {
     }
 
     const requestCode = generateRequestCode();
+    const supportingMaterials = Array.isArray(payload.supporting_materials)
+      ? payload.supporting_materials
+          .filter((item: unknown): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+          .slice(0, 20)
+          .map((item: Record<string, unknown>) => {
+            const questionKey = typeof item.question_key === "string"
+              ? item.question_key.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80)
+              : "";
+            let link: string | null = null;
+            if (typeof item.link === "string" && item.link.trim()) {
+              try {
+                const url = new URL(item.link.trim());
+                if (url.protocol === "http:" || url.protocol === "https:") link = url.toString().slice(0, 2000);
+              } catch {
+                link = null;
+              }
+            }
+            return { question_key: questionKey, link };
+          })
+          .filter((item: { question_key: string; link: string | null }) => item.question_key && item.link)
+      : [];
+
     const insertPayload = {
       request_code: requestCode,
       status: "NEW",
@@ -88,32 +110,32 @@ export async function POST(request: Request) {
       cv_language_count: Number(payload.cv_language_count ?? 1),
       selected_cv_languages: Array.isArray(payload.selected_cv_languages) ? payload.selected_cv_languages : [],
       has_current_cv: payload.has_current_cv === true || payload.has_current_cv === "Yes",
-      current_cv_file_path: payload.current_cv_file_path ?? null,
-      current_cv_file_name: payload.current_cv_file_name ?? null,
-      current_cv_file_type: payload.current_cv_file_type ?? null,
+      current_cv_file_path: null,
+      current_cv_file_name: null,
+      current_cv_file_type: null,
       optional_cv_link: payload.optional_cv_link ?? null,
       tools: Array.isArray(payload.tools) ? payload.tools : [],
       spoken_languages: payload.spoken_languages ?? null,
       has_certifications: payload.has_certifications === true || payload.has_certifications === "Yes",
       certifications_text: payload.certifications_text ?? null,
-      certifications_file_path: payload.certifications_file_path ?? null,
-      certifications_file_name: payload.certifications_file_name ?? null,
-      certifications_file_type: payload.certifications_file_type ?? null,
+      certifications_file_path: null,
+      certifications_file_name: null,
+      certifications_file_type: null,
       certifications_link: payload.certifications_link ?? null,
       cv_design_preference: payload.cv_design_preference ?? null,
-      cv_template_file_path: payload.cv_template_file_path ?? null,
-      cv_template_file_name: payload.cv_template_file_name ?? null,
-      cv_template_file_type: payload.cv_template_file_type ?? null,
+      cv_template_file_path: null,
+      cv_template_file_name: null,
+      cv_template_file_type: null,
       cv_template_link: payload.cv_template_link ?? null,
       additional_information: payload.additional_information ?? null,
       excluded_information: payload.excluded_information ?? null,
       recruitment_consent: payload.recruitment_consent === true || payload.recruitment_consent === "Yes",
       final_consent: payload.final_consent === true,
       admin_notes: null,
-      job_description_file_path: payload.job_description_file_path ?? null,
-      job_description_file_name: payload.job_description_file_name ?? null,
-      job_description_file_type: payload.job_description_file_type ?? null,
-      supporting_materials: Array.isArray(payload.supporting_materials) ? payload.supporting_materials : [],
+      job_description_file_path: null,
+      job_description_file_name: null,
+      job_description_file_type: null,
+      supporting_materials: supportingMaterials,
       raw_payload: payload,
     };
 
