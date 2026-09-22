@@ -39,6 +39,19 @@ const primaryFileFields = {
 
 type PrimaryKind = keyof typeof primaryFileFields;
 
+type UploadDescriptor = {
+  requestId?: string;
+  kind?: string;
+  token?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+};
+
+type UploadCompletion = UploadDescriptor & {
+  path?: string;
+};
+
 function safeFileName(value: string) {
   return value
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
@@ -50,10 +63,10 @@ function safeKindSegment(kind: string) {
   return kind.replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 80);
 }
 
-function resolveMimeType(file: File) {
-  if (file.type && allowedMimeTypes.has(file.type)) return file.type;
+function resolveMimeType(fileName: string, suppliedType?: string) {
+  if (suppliedType && allowedMimeTypes.has(suppliedType)) return suppliedType;
 
-  const extension = file.name.toLowerCase().split(".").pop();
+  const extension = fileName.toLowerCase().split(".").pop();
   const byExtension: Record<string, string> = {
     pdf: "application/pdf",
     doc: "application/msword",
@@ -68,84 +81,141 @@ function resolveMimeType(file: File) {
   return extension ? byExtension[extension] || null : null;
 }
 
+function validateKind(kind: string) {
+  const isPrimary = kind in primaryFileFields;
+  const isSupporting = kind.startsWith("supporting:");
+  if (!isPrimary && !isSupporting) return null;
+
+  const rawSegment = isSupporting ? kind.slice("supporting:".length) : kind;
+  if (!rawSegment || !/^[a-zA-Z0-9_-]+$/.test(rawSegment)) return null;
+
+  return { isPrimary, rawSegment };
+}
+
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
-    const file = formData.get("file");
-    const requestId = String(formData.get("requestId") || "");
-    const kind = String(formData.get("kind") || "");
-    const token = String(formData.get("token") || "");
+    const body = (await request.json()) as UploadDescriptor;
+    const requestId = String(body.requestId || "");
+    const kind = String(body.kind || "");
+    const submissionToken = String(body.token || "");
+    const fileName = String(body.fileName || "");
+    const fileSize = Number(body.fileSize || 0);
 
-    if (!(file instanceof File) || !requestId || !kind || !token) {
-      return NextResponse.json({ error: "Missing file or request information." }, { status: 400 });
+    if (!requestId || !kind || !submissionToken || !fileName) {
+      return NextResponse.json({ error: "Missing upload information." }, { status: 400 });
     }
 
-    const verified = await verifyRequestSubmissionToken(token);
+    const verified = await verifyRequestSubmissionToken(submissionToken);
     if (!verified || verified.requestId !== requestId) {
       return NextResponse.json({ error: "Invalid or expired upload token." }, { status: 401 });
     }
 
-    if (file.size <= 0 || file.size > MAX_FILE_SIZE) {
+    if (!Number.isFinite(fileSize) || fileSize <= 0 || fileSize > MAX_FILE_SIZE) {
       return NextResponse.json({ error: "File must be between 1 byte and 10 MB." }, { status: 400 });
     }
 
-    const contentType = resolveMimeType(file);
+    const contentType = resolveMimeType(fileName, body.fileType);
     if (!contentType) {
       return NextResponse.json({ error: "Unsupported file type." }, { status: 400 });
     }
 
-    const isPrimary = kind in primaryFileFields;
-    const isSupporting = kind.startsWith("supporting:");
-    if (!isPrimary && !isSupporting) {
+    const kindInfo = validateKind(kind);
+    if (!kindInfo) {
       return NextResponse.json({ error: "Invalid upload kind." }, { status: 400 });
     }
 
-    const rawSegment = isSupporting ? kind.slice("supporting:".length) : kind;
-    if (!rawSegment || !/^[a-zA-Z0-9_-]+$/.test(rawSegment)) {
-      return NextResponse.json({ error: "Invalid upload category." }, { status: 400 });
-    }
-
-    const fileName = `${Date.now()}-${safeFileName(file.name)}`;
-    const storagePath = `requests/${requestId}/${safeKindSegment(rawSegment)}/${fileName}`;
+    const storagePath = `requests/${requestId}/${safeKindSegment(kindInfo.rawSegment)}/${Date.now()}-${safeFileName(fileName)}`;
     const supabase = getSupabaseServerClient();
 
     const { data, error } = await supabase.storage
       .from("cvup-requests")
-      .upload(storagePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType,
-      });
+      .createSignedUploadUrl(storagePath, { upsert: false });
 
-    if (error || !data?.path) {
-      return NextResponse.json({ error: error?.message || "Upload failed." }, { status: 500 });
-    }
-
-    if (isPrimary) {
-      const fields = primaryFileFields[kind as PrimaryKind];
-      const { error: updateError } = await supabase
-        .from("cv_requests")
-        .update({
-          [fields.path]: data.path,
-          [fields.name]: file.name,
-          [fields.type]: contentType,
-        })
-        .eq("id", requestId)
-        .eq("request_code", verified.requestCode);
-
-      if (updateError) {
-        await supabase.storage.from("cvup-requests").remove([data.path]);
-        return NextResponse.json({ error: "File metadata could not be saved." }, { status: 500 });
-      }
+    if (error || !data?.token) {
+      return NextResponse.json({ error: "Could not prepare secure upload." }, { status: 500 });
     }
 
     return NextResponse.json({
-      path: data.path,
-      file_name: file.name,
-      file_type: contentType,
+      path: storagePath,
+      upload_token: data.token,
+      content_type: contentType,
+      file_name: fileName,
+      is_primary: kindInfo.isPrimary,
     });
   } catch (error) {
-    console.error("Upload error:", error instanceof Error ? error.message : "Unknown upload error");
-    return NextResponse.json({ error: "Upload failed." }, { status: 500 });
+    console.error("Upload preparation error:", error instanceof Error ? error.message : "Unknown error");
+    return NextResponse.json({ error: "Could not prepare upload." }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = (await request.json()) as UploadCompletion;
+    const requestId = String(body.requestId || "");
+    const kind = String(body.kind || "");
+    const submissionToken = String(body.token || "");
+    const path = String(body.path || "");
+    const fileName = String(body.fileName || "");
+
+    if (!requestId || !kind || !submissionToken || !path || !fileName) {
+      return NextResponse.json({ error: "Missing upload completion information." }, { status: 400 });
+    }
+
+    const verified = await verifyRequestSubmissionToken(submissionToken);
+    if (!verified || verified.requestId !== requestId) {
+      return NextResponse.json({ error: "Invalid or expired upload token." }, { status: 401 });
+    }
+
+    const kindInfo = validateKind(kind);
+    if (!kindInfo) {
+      return NextResponse.json({ error: "Invalid upload kind." }, { status: 400 });
+    }
+
+    const expectedPrefix = `requests/${requestId}/${safeKindSegment(kindInfo.rawSegment)}/`;
+    if (!path.startsWith(expectedPrefix)) {
+      return NextResponse.json({ error: "Invalid storage path." }, { status: 400 });
+    }
+
+    const contentType = resolveMimeType(fileName, body.fileType);
+    if (!contentType) {
+      return NextResponse.json({ error: "Unsupported file type." }, { status: 400 });
+    }
+
+    if (!kindInfo.isPrimary) {
+      return NextResponse.json({ success: true, path, file_name: fileName, file_type: contentType });
+    }
+
+    const supabase = getSupabaseServerClient();
+    const fields = primaryFileFields[kind as PrimaryKind];
+    const { data: objectRows } = await supabase
+      .schema("storage")
+      .from("objects")
+      .select("name")
+      .eq("bucket_id", "cvup-requests")
+      .eq("name", path)
+      .limit(1);
+
+    if (!objectRows?.length) {
+      return NextResponse.json({ error: "Uploaded file could not be verified." }, { status: 409 });
+    }
+
+    const { error: updateError } = await supabase
+      .from("cv_requests")
+      .update({
+        [fields.path]: path,
+        [fields.name]: fileName.slice(0, 255),
+        [fields.type]: contentType,
+      })
+      .eq("id", requestId)
+      .eq("request_code", verified.requestCode);
+
+    if (updateError) {
+      return NextResponse.json({ error: "File metadata could not be saved." }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, path, file_name: fileName, file_type: contentType });
+  } catch (error) {
+    console.error("Upload completion error:", error instanceof Error ? error.message : "Unknown error");
+    return NextResponse.json({ error: "Could not finalize upload." }, { status: 500 });
   }
 }
