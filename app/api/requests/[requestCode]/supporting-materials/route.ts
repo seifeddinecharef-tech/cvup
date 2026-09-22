@@ -28,7 +28,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ re
 
   const cleaned = body.materials
     .filter((item) => item && typeof item.question_key === "string")
-    .slice(0, 20)
+    .slice(0, 100)
     .map((item) => {
       let link: string | null = null;
       if (typeof item.link === "string" && item.link.trim()) {
