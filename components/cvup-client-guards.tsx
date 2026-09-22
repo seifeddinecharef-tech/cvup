@@ -159,6 +159,74 @@ function ensureArabicNameField(language: LanguageCode) {
   validate();
 }
 
+function validationMessage(field: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, language: LanguageCode) {
+  if (field.validity.customError) return field.validationMessage;
+  if (field.validity.valueMissing) return language === "ar" ? "هذا الحقل إجباري. يرجى إكماله للمتابعة." : language === "fr" ? "Ce champ est obligatoire. Veuillez le compléter pour continuer." : "This field is required. Please complete it to continue.";
+  if (field.validity.typeMismatch) return language === "ar" ? "القيمة المدخلة غير صحيحة. يرجى التحقق من الصيغة." : language === "fr" ? "La valeur saisie n’est pas valide. Vérifiez le format." : "The value entered is not valid. Please check the format.";
+  if (field.validity.tooShort) return language === "ar" ? "القيمة قصيرة جدا. يرجى إضافة معلومات أكثر." : language === "fr" ? "La valeur saisie est trop courte." : "The value entered is too short.";
+  if (field.validity.tooLong) return language === "ar" ? "القيمة طويلة جدا. يرجى تقصيرها." : language === "fr" ? "La valeur saisie est trop longue." : "The value entered is too long.";
+  if (field.validity.patternMismatch) return language === "ar" ? "صيغة هذه الخانة غير صحيحة. يرجى مراجعة البيانات." : language === "fr" ? "Le format de ce champ est incorrect. Vérifiez les données." : "This field has an invalid format. Please check the data.";
+  return language === "ar" ? "يرجى التحقق من هذه الخانة." : language === "fr" ? "Veuillez vérifier ce champ." : "Please check this field.";
+}
+
+function errorHost(field: HTMLElement): HTMLElement {
+  return field.closest("label") || field.parentElement || field;
+}
+
+function ensureInlineValidation(language: LanguageCode) {
+  const form = document.querySelector<HTMLFormElement>(".wizard-form");
+  if (!form) return;
+
+  const fields = Array.from(form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input, select, textarea"))
+    .filter((field) => field.type !== "hidden" && field.type !== "button" && field.type !== "submit");
+
+  const render = (field: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, force = false) => {
+    if (!force && !field.dataset.cvupTouched) return;
+    const host = errorHost(field);
+    let error = host.querySelector<HTMLElement>("[data-cvup-field-error]");
+    const invalid = !field.checkValidity();
+
+    field.setAttribute("aria-invalid", invalid ? "true" : "false");
+    field.classList.toggle("border-red-500", invalid);
+    field.classList.toggle("focus:border-red-500", invalid);
+
+    if (!invalid) {
+      error?.remove();
+      return;
+    }
+
+    if (!error) {
+      error = document.createElement("p");
+      error.dataset.cvupFieldError = "true";
+      error.className = "mt-2 text-sm font-medium leading-5 text-red-600";
+      error.setAttribute("role", "alert");
+      host.appendChild(error);
+    }
+    error.textContent = validationMessage(field, language);
+  };
+
+  fields.forEach((field) => {
+    if (field.dataset.cvupValidationBound) return;
+    field.dataset.cvupValidationBound = "true";
+    field.addEventListener("blur", () => {
+      field.dataset.cvupTouched = "true";
+      render(field, true);
+    });
+    field.addEventListener("input", () => {
+      if (field.dataset.cvupTouched) render(field, true);
+    });
+    field.addEventListener("change", () => {
+      if (field.dataset.cvupTouched) render(field, true);
+    });
+    field.addEventListener("invalid", (event) => {
+      event.preventDefault();
+      field.dataset.cvupTouched = "true";
+      render(field, true);
+      field.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  });
+}
+
 function ensureEditPolicyNote(language: LanguageCode) {
   const stepSeven = document.querySelector('[data-wizard-step="7"]');
   if (!stepSeven) return;
