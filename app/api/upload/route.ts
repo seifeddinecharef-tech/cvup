@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyRequestSubmissionToken } from "@/lib/request-submission-token";
 import { getSupabaseServerClient } from "@/lib/supabase";
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+import { MAX_UPLOAD_SIZE_BYTES, MAX_UPLOAD_SIZE_MB } from "@/lib/upload-limits";
 
 const allowedMimeTypes = new Set([
   "application/pdf",
@@ -110,8 +109,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid or expired upload token." }, { status: 401 });
     }
 
-    if (!Number.isFinite(fileSize) || fileSize <= 0 || fileSize > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: "File must be between 1 byte and 10 MB." }, { status: 400 });
+    if (!Number.isFinite(fileSize) || fileSize <= 0 || fileSize > MAX_UPLOAD_SIZE_BYTES) {
+      return NextResponse.json({ error: `File must be between 1 byte and ${MAX_UPLOAD_SIZE_MB} MB.` }, { status: 400 });
     }
 
     const contentType = resolveMimeType(fileName, body.fileType);
