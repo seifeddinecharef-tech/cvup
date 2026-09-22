@@ -772,8 +772,8 @@ export default function HomePage() {
       </header>
 
       <section id="top" className="hero-band mx-auto max-w-7xl px-4 py-10 md:px-8 md:py-16">
-        <div className="grid items-center gap-10 lg:grid-cols-[1.2fr_0.8fr]">
-          <div>
+        <div className="hero-grid grid items-center gap-10 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="hero-copy-column">
             <div className="hero-brandline mb-5">
               <CvUpLogo />
               <span>Truth first / relevance / optimization</span>
@@ -802,7 +802,7 @@ export default function HomePage() {
             <p className="mt-4 max-w-xl text-sm text-slate-600">{getText(language, "ctaSecondary")}</p>
           </div>
 
-          <div className="how-panel">
+          <div className="how-panel hero-how-panel">
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">{getText(language, "sectionHow")}</p>
             <div className="mt-4 space-y-4">
               {[
@@ -822,22 +822,20 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-8 md:px-8">
-        <h2 className="mb-6 text-2xl font-bold text-slate-900">{getText(language, "sectionOptions")}</h2>
+      <section className="landing-section landing-section--options mx-auto max-w-7xl px-4 py-8 md:px-8">\n        <h2 className="mb-6 text-2xl font-bold text-slate-900">{getText(language, "sectionOptions")}</h2>
         <div className="grid gap-5 md:grid-cols-2">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="landing-card rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-lg font-bold text-slate-900">{getText(language, "generalTitle")}</p>
             <p className="mt-3 text-slate-600">{getText(language, "generalText")}</p>
           </div>
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="landing-card rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-lg font-bold text-slate-900">{getText(language, "targetedTitle")}</p>
             <p className="mt-3 text-slate-600">{getText(language, "targetedText")}</p>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-8 md:px-8">
-        <h2 className="mb-6 text-2xl font-bold text-slate-900">{getText(language, "includedTitle")}</h2>
+      <section className="landing-section landing-section--included mx-auto max-w-7xl px-4 py-8 md:px-8">\n        <h2 className="mb-6 text-2xl font-bold text-slate-900">{getText(language, "includedTitle")}</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[
             {
@@ -878,7 +876,7 @@ export default function HomePage() {
           ].map((item) => {
             const label = language === "ar" ? item.ar : language === "fr" ? item.fr : item.en;
             return (
-              <div key={item.en} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700">
+              <div key={item.en} className="included-card rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700">
                 {label}
               </div>
             );
