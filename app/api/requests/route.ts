@@ -20,6 +20,12 @@ function generateRequestCode(): string {
 export async function POST(request: Request) {
   try {
     assertRequestSubmissionTokenConfigured();
+
+    const contentLength = Number(request.headers.get("content-length") || "0");
+    if (contentLength > 300_000) {
+      return NextResponse.json({ success: false, error: "Request payload is too large." }, { status: 413 });
+    }
+
     const payload = await request.json();
 
     if (!payload || typeof payload !== "object") {
@@ -30,6 +36,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Missing required fields." }, { status: 400 });
     }
 
+    if (JSON.stringify(payload).length > 300_000) {
+      return NextResponse.json({ success: false, error: "Request payload is too large." }, { status: 413 });
+    }
+
+    const fullName = String(payload.full_name).trim();
+    const phone = String(payload.phone).trim();
+    const email = String(payload.email).trim().toLowerCase();
+    const formLanguage = String(payload.form_language);
+    const cvType = String(payload.cv_type);
+
+    if (fullName.length < 2 || fullName.length > 160) {
+      return NextResponse.json({ success: false, error: "Invalid full name." }, { status: 400 });
+    }
+
+    if (phone.length < 6 || phone.length > 32) {
+      return NextResponse.json({ success: false, error: "Invalid WhatsApp number." }, { status: 400 });
+    }
+
+    if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ success: false, error: "Invalid email address." }, { status: 400 });
+    }
+
+    if (!["ar", "fr", "en"].includes(formLanguage)) {
+      return NextResponse.json({ success: false, error: "Invalid form language." }, { status: 400 });
+    }
+
+    if (!["General CV", "CV targeted to a specific job"].includes(cvType)) {
+      return NextResponse.json({ success: false, error: "Invalid CV type." }, { status: 400 });
+    }
+
     if (payload.final_consent !== true) {
       return NextResponse.json({ success: false, error: "Final consent is required." }, { status: 400 });
     }
@@ -38,11 +74,11 @@ export async function POST(request: Request) {
     const insertPayload = {
       request_code: requestCode,
       status: "NEW",
-      form_language: String(payload.form_language),
-      full_name: String(payload.full_name),
-      phone: String(payload.phone),
-      email: String(payload.email),
-      cv_type: String(payload.cv_type),
+      form_language: formLanguage,
+      full_name: fullName,
+      phone,
+      email,
+      cv_type: cvType,
       target_job_title: payload.target_job_title ?? null,
       company_name: payload.company_name ?? null,
       job_url: payload.job_url ?? null,
