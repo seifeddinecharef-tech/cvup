@@ -10,7 +10,7 @@ export function getCountryOptions(locale: "ar" | "fr" | "en") {
       code,
       label: displayNames.of(code) || code,
     }))
-    .sort((a, b) => a.label.localeCompare(b.label, locale));
+    .sort((a, b) => {\n      const byLabel = a.label < b.label ? -1 : a.label > b.label ? 1 : 0;\n      return byLabel || (a.code < b.code ? -1 : a.code > b.code ? 1 : 0);\n    });
 }
 
 export function getCountryLabel(code: string, locale: "ar" | "fr" | "en") {
