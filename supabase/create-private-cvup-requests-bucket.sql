@@ -9,7 +9,7 @@ values (
   'cvup-requests',
   'cvup-requests',
   false,
-  10485760,
+  52428800,
   array[
     'application/pdf',
     'application/msword',
