@@ -905,6 +905,8 @@ export default function HomePage() {
                     onChange={(e) => handleFieldChange("job_description_file", e.target.files?.[0] ?? null)}
                     className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
                   />
+                  {fileLimitHint()}
+                  {extraAttachmentFields("job_description")}
                 </label>
                 <div className="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                   {getText(language, "note")}
@@ -1003,15 +1005,18 @@ export default function HomePage() {
                       onChange={(e) => handleFieldChange("current_cv_file", e.target.files?.[0] ?? null)}
                       className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
                     />
+                    {fileLimitHint()}
                   </label>
                   <label className="block md:col-span-2">
                     <span className="mb-2 block text-sm font-medium text-slate-700">{getText(language, "optionalLink")}</span>
                     <input
+                      type="url"
                       value={form.optional_cv_link}
                       onChange={(e) => handleFieldChange("optional_cv_link", e.target.value)}
                       className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                     />
                   </label>
+                  <div className="md:col-span-2">{extraAttachmentFields("current_cv")}</div>
                 </div>
               )}
             </div>
@@ -1350,18 +1355,23 @@ export default function HomePage() {
                     placeholder={language === "ar" ? "اسم الشهادة أو التكوين" : language === "fr" ? "Nom de la certification ou de la formation" : "Certification or training name"}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                   />
+                  <div>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                      onChange={(e) => handleFieldChange("certifications_file", e.target.files?.[0] ?? null)}
+                      className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
+                    />
+                    {fileLimitHint()}
+                  </div>
                   <input
-                    type="file"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                    onChange={(e) => handleFieldChange("certifications_file", e.target.files?.[0] ?? null)}
-                    className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
-                  />
-                  <input
+                    type="url"
                     value={form.certifications_link}
                     onChange={(e) => handleFieldChange("certifications_link", e.target.value)}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                     placeholder={language === "ar" ? "رابط اختياري" : language === "fr" ? "Lien facultatif" : "Optional link"}
                   />
+                  {extraAttachmentFields("certifications")}
                 </div>
               )}
             </div>
@@ -1382,18 +1392,23 @@ export default function HomePage() {
               </div>
               {form.cv_design_preference === "I have a specific template" && (
                 <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                      onChange={(e) => handleFieldChange("cv_template_file", e.target.files?.[0] ?? null)}
+                      className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
+                    />
+                    {fileLimitHint()}
+                  </div>
                   <input
-                    type="file"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                    onChange={(e) => handleFieldChange("cv_template_file", e.target.files?.[0] ?? null)}
-                    className="w-full rounded-xl border border-dashed border-slate-300 bg-white p-3 text-sm"
-                  />
-                  <input
+                    type="url"
                     value={form.cv_template_link}
                     onChange={(e) => handleFieldChange("cv_template_link", e.target.value)}
                     placeholder={language === "ar" ? "رابط القالب" : language === "fr" ? "Lien du modèle" : "Template link"}
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-slate-500"
                   />
+                  <div className="md:col-span-2">{extraAttachmentFields("template")}</div>
                 </div>
               )}
               {form.cv_design_preference === "Other" && (
