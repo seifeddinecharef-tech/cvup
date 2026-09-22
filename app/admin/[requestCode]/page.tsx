@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getAdminRequestByCode } from "@/lib/admin-data";
 import { AdminWorkStatusControls } from "@/components/admin-work-status-controls";
 import { AdminPaymentControls } from "@/components/admin-payment-controls";
+import { AdminLogoutButton } from "@/components/admin-logout-button";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -185,6 +186,7 @@ export default async function AdminRequestDetailPage({
                 Download dossier ZIP
               </Link>
             ) : null}
+            <AdminLogoutButton />
           </div>
         </header>
 
