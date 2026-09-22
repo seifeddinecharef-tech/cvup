@@ -6,7 +6,11 @@ function SuccessContent() {
   const [clientName, setClientName] = useState("");
 
   useEffect(() => {
-    setClientName(window.sessionStorage.getItem("cvup_last_full_name")?.trim() || "");
+    const timer = window.setTimeout(() => {
+      setClientName(window.sessionStorage.getItem("cvup_last_full_name")?.trim() || "");
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   return (
