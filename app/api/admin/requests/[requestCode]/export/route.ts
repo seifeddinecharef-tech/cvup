@@ -4,6 +4,18 @@ import { getSupabaseServerClient } from "@/lib/supabase";
 
 const bucket = "cvup-requests";
 
+type SupportingMaterial = {
+  question_key?: string;
+  link?: string | null;
+  file_path?: string | null;
+  file_name?: string | null;
+  file_type?: string | null;
+};
+
+function supportingMaterials(value: unknown): SupportingMaterial[] {
+  return Array.isArray(value) ? value.filter((item): item is SupportingMaterial => Boolean(item && typeof item === "object")) : [];
+}
+
 function safeSlug(value: string) {
   return value
     .normalize("NFKD")
@@ -33,6 +45,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ req
   if (!request) return new Response("Request not found.", { status: 404 });
 
   const raw = record(request.raw_payload);
+  const supporting = supportingMaterials(request.supporting_materials);
   const uploadedFiles = [
     ["Current CV", request.current_cv_file_path, request.current_cv_file_name],
     ["Job Description", request.job_description_file_path, request.job_description_file_name],
@@ -117,6 +130,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ req
     row("Payment notes", request.payment_notes),
     row("Paid at", request.paid_at),
     "",
+    "## Supporting Materials",
+    ...(supporting.length
+      ? supporting.flatMap((item) => [
+          row("Question", item.question_key),
+          row("Link", item.link),
+          row("File", item.file_name),
+          "",
+        ])
+      : [row("Supporting materials", "—")]),
+    "",
     "## Uploaded Files",
     ...uploadedFiles.map(([label, path, name]) => row(label, name ? `${name} (${path || "path unavailable"})` : "—")),
     "",
@@ -143,6 +166,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ req
       continue;
     }
     zip.file(`uploads/${name.replace(/[\\/]/g, "-")}`, await data.arrayBuffer());
+  }
+
+  for (const item of supporting) {
+    if (!item.file_path || !item.file_name) continue;
+    const { data, error } = await supabase.storage.from(bucket).download(item.file_path);
+    if (error || !data) {
+      warnings.push(`Supporting material ${item.question_key || "unknown"}: ${item.file_name} could not be downloaded.`);
+      continue;
+    }
+    const safeQuestion = String(item.question_key || "supporting").replace(/[^a-zA-Z0-9_-]/g, "-");
+    zip.file(`supporting/${safeQuestion}/${item.file_name.replace(/[\\/]/g, "-")}`, await data.arrayBuffer());
   }
 
   if (warnings.length) {
