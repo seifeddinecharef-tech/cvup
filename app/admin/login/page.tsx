@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-client";
 
 function GoogleIcon() {
@@ -16,7 +16,7 @@ function GoogleIcon() {
   );
 }
 
-export default function AdminLoginPage() {
+function AdminLoginContent() {
   const searchParams = useSearchParams();
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -89,5 +89,13 @@ export default function AdminLoginPage() {
       </section>
       <p className="admin-login-copyright">CVUp · Secure workspace</p>
     </main>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={<main className="admin-login-shell"><p>Loading secure sign-in…</p></main>}>
+      <AdminLoginContent />
+    </Suspense>
   );
 }
