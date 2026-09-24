@@ -17,6 +17,10 @@ function clientKey(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (process.env.CVUP_ENABLE_PASSWORD_ADMIN_LOGIN !== "true") {
+    return NextResponse.json({ error: "Password admin login is disabled." }, { status: 404 });
+  }
+
   const expectedEmail = process.env.CVUP_ADMIN_EMAIL?.trim().toLowerCase();
   const expectedPassword = process.env.CVUP_ADMIN_PASSWORD;
 
