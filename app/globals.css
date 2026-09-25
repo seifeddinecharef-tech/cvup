@@ -362,3 +362,40 @@ button, input, select, textarea {
   .landing-card:hover, .included-card:hover, .ethics-panel:hover, .payment-panel:hover,
   .hero-how-panel .how-step:hover { transform: none !important; }
 }
+
+
+/* Refined Admin Google sign-in */
+.admin-login-shell { position: relative; overflow: hidden; background: linear-gradient(145deg, #f8faf6 0%, #eef4ea 52%, #f7f9f5 100%); }
+.admin-login-shell::before { position: absolute; inset: 0; content: ""; pointer-events: none; background-image: radial-gradient(rgba(24,61,53,.08) .7px, transparent .7px); background-size: 22px 22px; mask-image: linear-gradient(to bottom, rgba(0,0,0,.3), transparent 70%); }
+.admin-login-orb { position: absolute; border-radius: 50%; filter: blur(1px); pointer-events: none; }
+.admin-login-orb--one { width: 26rem; height: 26rem; top: -13rem; right: -8rem; background: rgba(213,241,90,.18); }
+.admin-login-orb--two { width: 20rem; height: 20rem; bottom: -11rem; left: -7rem; background: rgba(24,61,53,.07); }
+.admin-login-card { position: relative; z-index: 1; width: min(100%, 31rem); border-color: rgba(205,218,205,.9); border-radius: 2rem; background: rgba(255,255,255,.9); padding: 2rem; box-shadow: 0 28px 80px rgba(24,61,53,.11); backdrop-filter: blur(18px); }
+.admin-login-brand { gap: .9rem; }
+.admin-login-logo { width: 3.25rem; height: 3.25rem; padding: .5rem; box-shadow: 0 8px 22px rgba(0,0,0,.12); }
+.admin-login-brand strong { font-size: 1.35rem; letter-spacing: -.03em; }
+.admin-login-brand span { font-size: .8rem; }
+.admin-login-copy { margin-top: 2.5rem; }
+.admin-login-secure { display: inline-flex; align-items: center; gap: .45rem; border: 1px solid #dce8a7; border-radius: 999px; background: #f5fadf; color: #53670d; padding: .42rem .7rem; font-size: .7rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.admin-login-secure span { color: #8fac23; font-size: .62rem; }
+.admin-login-copy h1 { margin-top: .8rem; font-size: clamp(2.35rem, 7vw, 3.2rem); line-height: .98; letter-spacing: -.06em; }
+.admin-login-copy > p:last-child { max-width: 26rem; margin-top: .9rem; font-size: .96rem; line-height: 1.65; }
+.admin-google-button { position: relative; display: grid; grid-template-columns: 2.6rem 1fr 2rem; width: 100%; min-height: 3.75rem; align-items: center; gap: .7rem; margin-top: 1.6rem; border: 1px solid #cfd9d0; border-radius: 1rem; background: #fff; color: var(--ink); cursor: pointer; padding: .45rem .7rem; box-shadow: 0 7px 20px rgba(24,61,53,.06); font-size: .95rem; font-weight: 900; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease; }
+.admin-google-button:hover { transform: translateY(-2px); border-color: #b8c8b9; background: #fcfdfb; box-shadow: 0 12px 28px rgba(24,61,53,.1); }
+.admin-google-button:active { transform: translateY(0); }
+.admin-google-button:focus-visible { outline: 3px solid rgba(168,197,50,.32); outline-offset: 3px; }
+.admin-google-button:disabled { cursor: wait; opacity: .65; transform: none; }
+.admin-google-icon { display: grid; width: 2.6rem; height: 2.6rem; place-items: center; border: 1px solid #e7ebe7; border-radius: .75rem; background: #fff; }
+.admin-google-arrow { color: #718078; font-size: 1.25rem; transition: transform .2s ease; }
+.admin-google-button:hover .admin-google-arrow { transform: translateX(3px); }
+.admin-login-footnote { display: flex; align-items: flex-start; gap: .55rem; margin-top: 1.2rem; color: #849089; font-size: .72rem; line-height: 1.5; }
+.admin-login-footnote > span { margin-top: .08rem; color: #a8c532; font-size: .62rem; }
+.admin-login-footnote p { margin: 0; }
+.admin-login-copyright { position: absolute; bottom: 1.2rem; z-index: 1; margin: 0; color: #89958e; font-size: .68rem; font-weight: 700; letter-spacing: .04em; }
+@media (max-width: 560px) {
+  .admin-login-shell { align-items: center; padding: 1rem; }
+  .admin-login-card { border-radius: 1.5rem; padding: 1.35rem; }
+  .admin-login-copy { margin-top: 2rem; }
+  .admin-login-copy h1 { font-size: 2.35rem; }
+  .admin-login-copyright { display: none; }
+}
