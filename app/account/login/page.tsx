@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { FormEvent, useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-client";
 
 type Language = "ar" | "fr" | "en";
@@ -77,8 +76,7 @@ function mapError(message: string, language: Language) {
 }
 
 export default function Login() {
-  const params = useSearchParams();
-  const next = useMemo(() => safeNext(params.get("next")), [params]);
+  const [next, setNext] = useState("/account");
   const [language, setLanguage] = useState<Language>("en");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -87,14 +85,16 @@ export default function Login() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
+    const resolvedNext = safeNext(new URLSearchParams(window.location.search).get("next"));
+    setNext(resolvedNext);
     const stored = window.localStorage.getItem("cvup_language");
     if (stored === "ar" || stored === "fr" || stored === "en") setLanguage(stored);
     const supabase = getSupabaseBrowserClient();
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) window.location.replace(next);
+      if (data.session) window.location.replace(resolvedNext);
       else setChecking(false);
     });
-  }, [next]);
+  }, []);
 
   function changeLanguage(value: Language) {
     setLanguage(value);
