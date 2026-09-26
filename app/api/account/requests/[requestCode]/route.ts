@@ -162,6 +162,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ reque
   const submissionToken = await createRequestSubmissionToken(String(existing.id), String(existing.request_code));
   return NextResponse.json({
     success: true,
+    id: updated.id,
+    request_code: updated.request_code,
     request: updated,
     submission_token: submissionToken,
   }, { headers: { "Cache-Control": "no-store" } });
