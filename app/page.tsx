@@ -149,6 +149,9 @@ export default function HomePage() {
   const [supportingFiles, setSupportingFiles] = useState(initialSupportingFiles);
   const [extraLinks, setExtraLinks] = useState(initialExtraLinks);
   const [extraFiles, setExtraFiles] = useState(initialExtraFiles);
+  const [editingRequestCode, setEditingRequestCode] = useState<string | null>(null);
+  const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
+  const [editSubmissionToken, setEditSubmissionToken] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   const wizardSteps = [
@@ -175,8 +178,100 @@ export default function HomePage() {
 
   useEffect(() => {
     (async () => {
+      const params = new URLSearchParams(window.location.search);
+      const editCode = params.get("edit");
+      const isAccountRequest = params.get("new") === "1" || Boolean(editCode);
+
+      const storedLanguage = window.localStorage.getItem("cvup_language");
+      const flowLanguage: LanguageCode = storedLanguage === "ar" || storedLanguage === "fr" || storedLanguage === "en" ? storedLanguage : "en";
+      const flowText = (ar: string, fr: string, en: string) => flowLanguage === "ar" ? ar : flowLanguage === "fr" ? fr : en;
+      if (storedLanguage === "ar" || storedLanguage === "fr" || storedLanguage === "en") {
+        setLanguage(storedLanguage);
+        setForm((current) => ({ ...current, form_language: storedLanguage }));
+      }
+
       const supabase = getSupabaseBrowserClient();
       const { data: { user } } = await supabase.auth.getUser();
+
+      if (isAccountRequest && !user) {
+        const next = editCode ? `/?edit=${encodeURIComponent(editCode)}#form` : "/?new=1#form";
+        window.location.replace(`/account/login?next=${encodeURIComponent(next)}`);
+        return;
+      }
+
+      if (editCode && user) {
+        setStatus(flowText("جارٍ تحميل الطلب السابق…", "Chargement de la demande…", "Loading your previous request…"));
+        const response = await fetch(`/api/account/requests/${encodeURIComponent(editCode)}`, { cache: "no-store" });
+        const result = await response.json();
+
+        if (!response.ok || !result?.request) {
+          setStatus(result?.error || ui("تعذر تحميل الطلب.", "Impossible de charger la demande.", "We couldn't load this request."));
+          return;
+        }
+
+        if (!result.editable) {
+          setStatus(flowText("لا يمكن تعديل هذا الطلب بعد بدء المعالجة.", "Cette demande ne peut plus être modifiée après le début du traitement.", "This request can no longer be edited after processing has started."));
+          return;
+        }
+
+        const request = result.request as Record<string, any>;
+        const raw = request.raw_payload && typeof request.raw_payload === "object" ? request.raw_payload : {};
+        const formLanguage = ["ar", "fr", "en"].includes(String(raw.form_language || request.form_language))
+          ? String(raw.form_language || request.form_language) as LanguageCode
+          : "fr";
+
+        setLanguage(formLanguage);
+        window.localStorage.setItem("cvup_language", formLanguage);
+        setForm((current) => ({
+          ...current,
+          ...raw,
+          form_language: formLanguage,
+          full_name: String(raw.full_name || request.full_name || ""),
+          full_name_arabic: String(raw.full_name_arabic || ""),
+          phone: String(raw.phone || request.phone || ""),
+          email: String(raw.email || request.email || user.email || ""),
+          cv_type: String(raw.cv_type || request.cv_type || "General CV"),
+          target_job_title: String(raw.target_job_title || request.target_job_title || ""),
+          company_name: String(raw.company_name || request.company_name || ""),
+          job_url: String(raw.job_url || request.job_url || ""),
+          job_description_text: String(raw.job_description_text || request.job_description_text || ""),
+          professional_field: String(raw.professional_field || request.professional_field || current.professional_field),
+          target_role: String(raw.target_role || request.target_role || ""),
+          cv_language_count: Number(raw.cv_language_count || request.cv_language_count || 1),
+          selected_cv_languages: Array.isArray(raw.selected_cv_languages)
+            ? raw.selected_cv_languages
+            : Array.isArray(request.selected_cv_languages) ? request.selected_cv_languages : ["French"],
+          has_current_cv: raw.has_current_cv === true || raw.has_current_cv === "Yes" || request.has_current_cv === true ? "Yes" : "No",
+          optional_cv_link: String(raw.optional_cv_link || request.optional_cv_link || ""),
+          tools: Array.isArray(raw.tools) ? raw.tools : Array.isArray(request.tools) ? request.tools : [],
+          spoken_languages: Array.isArray(raw.spoken_languages)
+            ? raw.spoken_languages
+            : Array.isArray(request.spoken_languages) ? request.spoken_languages : current.spoken_languages,
+          has_certifications: raw.has_certifications === true || raw.has_certifications === "Yes" || request.has_certifications === true ? "Yes" : "No",
+          certifications_text: String(raw.certifications_text || request.certifications_text || ""),
+          certifications_link: String(raw.certifications_link || request.certifications_link || ""),
+          cv_design_preference: String(raw.cv_design_preference || request.cv_design_preference || current.cv_design_preference),
+          cv_template_link: String(raw.cv_template_link || request.cv_template_link || ""),
+          additional_information: String(raw.additional_information || request.additional_information || ""),
+          excluded_information: String(raw.excluded_information || request.excluded_information || ""),
+          recruitment_consent: raw.recruitment_consent === true || raw.recruitment_consent === "Yes" || request.recruitment_consent === true ? "Yes" : "No",
+          final_consent: Boolean(raw.final_consent ?? request.final_consent),
+          current_cv_file: null,
+          job_description_file: null,
+          certifications_file: null,
+          cv_template_file: null,
+        }));
+
+        setEditingRequestCode(editCode);
+        setEditingRequestId(String(request.id));
+        setEditSubmissionToken(typeof result.submission_token === "string" ? result.submission_token : null);
+        setCurrentStep(7);
+        setReviewEditStep(null);
+        setStatus(null);
+        window.requestAnimationFrame(() => document.getElementById("form")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+        return;
+      }
+
       if (!user) return;
       const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
       setForm((current) => ({
@@ -190,6 +285,11 @@ export default function HomePage() {
         professional_field: profile?.professional_field || current.professional_field,
         target_role: current.target_role || profile?.target_role || "",
       }));
+
+      if (isAccountRequest) {
+        setCurrentStep(1);
+        window.requestAnimationFrame(() => document.getElementById("form")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      }
     })();
   }, []);
 
@@ -602,11 +702,14 @@ export default function HomePage() {
         supporting_materials: initialMaterials,
       };
 
-      const response = await fetch("/api/requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const response = await fetch(
+        editingRequestCode ? `/api/account/requests/${encodeURIComponent(editingRequestCode)}` : "/api/requests",
+        {
+          method: editingRequestCode ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editingRequestCode ? { form: body } : body),
+        }
+      );
 
       const result = await response.json();
 
@@ -615,8 +718,8 @@ export default function HomePage() {
       }
 
       const requestCode = typeof result?.request_code === "string" ? result.request_code : "";
-      const requestId = typeof result?.id === "string" ? result.id : "";
-      const submissionToken = typeof result?.submission_token === "string" ? result.submission_token : "";
+      const requestId = typeof result?.id === "string" ? result.id : editingRequestId || "";
+      const submissionToken = typeof result?.submission_token === "string" ? result.submission_token : editSubmissionToken || "";
 
       if (!requestCode || !requestId || !submissionToken) {
         throw new Error(ui(
@@ -753,8 +856,13 @@ export default function HomePage() {
         }
       }
 
-      setStatus(ui(`تم إرسال الطلب: ${requestCode}`, `Demande envoyée : ${requestCode}`, `Request submitted: ${requestCode}`));
-      router.push(`/success?request_code=${encodeURIComponent(requestCode)}`);
+      if (editingRequestCode) {
+        setStatus(ui("تم حفظ التعديلات بنجاح.", "Modifications enregistrées.", "Changes saved successfully."));
+        router.push("/account");
+      } else {
+        setStatus(ui(`تم إرسال الطلب: ${requestCode}`, `Demande envoyée : ${requestCode}`, `Request submitted: ${requestCode}`));
+        router.push(`/success?request_code=${encodeURIComponent(requestCode)}`);
+      }
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to submit your request.");
     } finally {
@@ -1667,6 +1775,15 @@ export default function HomePage() {
               <p className="mt-3 text-sm text-slate-600">{getText(language, "recruitmentNote")}</p>
             </div>
 
+            {editingRequestCode ? (
+              <div data-wizard-step="7" className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4">
+                <p className="text-sm font-semibold text-emerald-900">
+                  {ui("أنت تعدّل طلبًا سابقًا. اختر «تعديل» بجانب أي قسم، احفظه، ثم احفظ التغييرات النهائية.", "Vous modifiez une demande existante. Utilisez « Modifier » pour changer une section, puis enregistrez les modifications finales.", "You're editing an existing request. Use “Edit” on any section, save it, then save the final changes.")}
+                </p>
+                <p dir="ltr" className="mt-1 text-xs text-emerald-700">#{editingRequestCode}</p>
+              </div>
+            ) : null}
+
             <div data-wizard-step="7" className="review-grid">
               {reviewGroups.map((group) => <section key={group.step} className="review-card"><div className="review-card__heading"><h4>{group.title}</h4><button type="button" onClick={() => editReviewStep(group.step)}>{language === "ar" ? "تعديل" : language === "fr" ? "Modifier" : "Edit"}</button></div>{group.values.map(([label, value]) => <div key={String(label)} className="review-row"><span>{label}</span><strong>{reviewValue(value)}</strong></div>)}</section>)}
               <div className="review-price"><span>{language === "ar" ? "السعر النهائي" : language === "fr" ? "Prix final" : "Final price"}</span><strong>{language === "ar" ? "800 دج" : "800 DA"}</strong></div>
@@ -1690,7 +1807,11 @@ export default function HomePage() {
               disabled={isSubmitting}
               className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? (language === "ar" ? "جارٍ الإرسال..." : language === "fr" ? "Envoi en cours..." : "Submitting...") : getText(language, "submit")}
+              {isSubmitting
+                ? (language === "ar" ? "جارٍ الحفظ..." : language === "fr" ? "Enregistrement..." : "Saving...")
+                : editingRequestCode
+                  ? ui("حفظ التعديلات", "Enregistrer les modifications", "Save changes")
+                  : getText(language, "submit")}
             </button>
           </form>
               <div className="wizard-controls"><button type="button" className="wizard-control wizard-control--back" onClick={() => moveStep(-1)} disabled={currentStep === 1}>{language === "ar" ? "السابق" : language === "fr" ? "Précédent" : "Back"}</button>{currentStep < 7 ? <button type="button" className="wizard-control wizard-control--next" onClick={() => moveStep(1)}>{reviewEditStep === currentStep ? (language === "ar" ? "حفظ والعودة للمراجعة" : language === "fr" ? "Enregistrer et revenir à la vérification" : "Save and return to review") : (language === "ar" ? "التالي" : language === "fr" ? "Continuer" : "Continue")}</button> : null}</div>
