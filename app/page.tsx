@@ -152,7 +152,6 @@ export default function HomePage() {
   const [editingRequestCode, setEditingRequestCode] = useState<string | null>(null);
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
   const [editSubmissionToken, setEditSubmissionToken] = useState<string | null>(null);
-  const [accountFlow, setAccountFlow] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const wizardSteps = [
@@ -182,9 +181,10 @@ export default function HomePage() {
       const params = new URLSearchParams(window.location.search);
       const editCode = params.get("edit");
       const isAccountRequest = params.get("new") === "1" || Boolean(editCode);
-      setAccountFlow(isAccountRequest);
 
       const storedLanguage = window.localStorage.getItem("cvup_language");
+      const flowLanguage: LanguageCode = storedLanguage === "ar" || storedLanguage === "fr" || storedLanguage === "en" ? storedLanguage : "en";
+      const flowText = (ar: string, fr: string, en: string) => flowLanguage === "ar" ? ar : flowLanguage === "fr" ? fr : en;
       if (storedLanguage === "ar" || storedLanguage === "fr" || storedLanguage === "en") {
         setLanguage(storedLanguage);
         setForm((current) => ({ ...current, form_language: storedLanguage }));
@@ -200,7 +200,7 @@ export default function HomePage() {
       }
 
       if (editCode && user) {
-        setStatus(ui("جارٍ تحميل الطلب السابق…", "Chargement de la demande…", "Loading your previous request…"));
+        setStatus(flowText("جارٍ تحميل الطلب السابق…", "Chargement de la demande…", "Loading your previous request…"));
         const response = await fetch(`/api/account/requests/${encodeURIComponent(editCode)}`, { cache: "no-store" });
         const result = await response.json();
 
@@ -210,7 +210,7 @@ export default function HomePage() {
         }
 
         if (!result.editable) {
-          setStatus(ui("لا يمكن تعديل هذا الطلب بعد بدء المعالجة.", "Cette demande ne peut plus être modifiée après le début du traitement.", "This request can no longer be edited after processing has started."));
+          setStatus(flowText("لا يمكن تعديل هذا الطلب بعد بدء المعالجة.", "Cette demande ne peut plus être modifiée après le début du traitement.", "This request can no longer be edited after processing has started."));
           return;
         }
 
